@@ -76,7 +76,7 @@ export function InstallPrompt() {
         )
     }
 
-    // iOS Prompt
+    // iOS Prompt - Prompt user to add app to home screen 
     if (showIOSPrompt) {
         return (
             <div className="fixed bottom-0 left-0 right-0 z-50 bg-surface dark:bg-surface-dark border-t border-gray-200 dark:border-gray-800 p-4 shadow-lg animate-in slide-in-from-bottom duration-300 pb-8">
