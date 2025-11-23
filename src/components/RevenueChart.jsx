@@ -22,7 +22,7 @@ export function RevenueChart({ data, title }) {
                             fontSize={12}
                             tickLine={false}
                             axisLine={false}
-                            tickFormatter={(value) => `$${value}`}
+                            tickFormatter={(value) => `₹${value}`}
                         />
                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
                         <Tooltip

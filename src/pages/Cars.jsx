@@ -131,9 +131,9 @@ export function Cars() {
                                         </span>
                                     </div>
                                     <div className="space-y-1">
-                                        <p className="text-lg font-bold text-primary">${car.price}<span className="text-sm font-normal text-muted-foreground">/day</span></p>
+                                        <p className="text-lg font-bold text-primary">₹{car.price}<span className="text-sm font-normal text-muted-foreground">/day</span></p>
                                         {car.monthlyPrice && (
-                                            <p className="text-sm text-muted-foreground">${car.monthlyPrice}/month</p>
+                                            <p className="text-sm text-muted-foreground">₹{car.monthlyPrice}/month</p>
                                         )}
                                     </div>
                                 </CardContent>

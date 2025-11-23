@@ -6,6 +6,7 @@ import { Cars } from './pages/Cars'
 import { CarDetails } from './pages/CarDetails'
 import { Customers } from './pages/Customers'
 import { Transactions } from './pages/Transactions'
+import { InstallPrompt } from './components/InstallPrompt'
 
 import { Dealers } from './pages/Dealers'
 import { Maintenance } from './pages/Maintenance'
@@ -25,6 +26,7 @@ function App() {
                         <Route path="/maintenance" element={<Maintenance />} />
                     </Routes>
                 </Layout>
+                <InstallPrompt />
             </Router>
         </DrivewayProvider>
     )

@@ -94,7 +94,7 @@ export function Maintenance() {
                                 </CardHeader>
                                 <CardContent className="flex-1 flex flex-col">
                                     <div className="mb-4">
-                                        <p className="text-2xl font-bold">${workshop.totalSpent}</p>
+                                        <p className="text-2xl font-bold">₹{workshop.totalSpent}</p>
                                         <p className="text-xs text-muted-foreground">Total Spent</p>
                                     </div>
                                     <div className="space-y-3 mt-auto">
@@ -169,7 +169,7 @@ export function Maintenance() {
                                                 </div>
                                             </div>
                                             <div className="text-right flex flex-col items-end gap-2">
-                                                <p className="font-bold text-xl">${record.amount}</p>
+                                                <p className="font-bold text-xl">₹{record.amount}</p>
                                                 <div className="flex gap-2">
                                                     <Button
                                                         variant="ghost"

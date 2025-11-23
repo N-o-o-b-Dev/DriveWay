@@ -80,7 +80,7 @@ export function CarDetails() {
 
                 if (remainingDays > 0) {
                     price += remainingDays * currentDailyRate
-                    breakdown.push({ label: `${remainingDays} Day${remainingDays > 1 ? 's' : ''} @ $${currentDailyRate}/day`, amount: remainingDays * currentDailyRate })
+                    breakdown.push({ label: `${remainingDays} Day${remainingDays > 1 ? 's' : ''} @ ₹${currentDailyRate}/day`, amount: remainingDays * currentDailyRate })
                 }
             }
             setPriceDetails({ total: price, breakdown })
@@ -181,18 +181,18 @@ export function CarDetails() {
                                 <CardContent className="space-y-4">
                                     <div className="flex justify-between items-center border-b pb-2">
                                         <span className="text-muted-foreground">Daily Rate</span>
-                                        <span className="font-bold text-xl">${car.price}</span>
+                                        <span className="font-bold text-xl">₹{car.price}</span>
                                     </div>
                                     {car.tenDayPrice && (
                                         <div className="flex justify-between items-center border-b pb-2">
                                             <span className="text-muted-foreground">10 Days Rate</span>
-                                            <span className="font-bold text-xl">${car.tenDayPrice}</span>
+                                            <span className="font-bold text-xl">₹{car.tenDayPrice}</span>
                                         </div>
                                     )}
                                     {car.monthlyPrice && (
                                         <div className="flex justify-between items-center">
                                             <span className="text-muted-foreground">Monthly Rate</span>
-                                            <span className="font-bold text-xl">${car.monthlyPrice}</span>
+                                            <span className="font-bold text-xl">₹{car.monthlyPrice}</span>
                                         </div>
                                     )}
                                 </CardContent>
@@ -252,7 +252,7 @@ export function CarDetails() {
                                                         }`}>
                                                         {t.status}
                                                     </span>
-                                                    <p className="text-2xl font-bold text-primary">${t.total}</p>
+                                                    <p className="text-2xl font-bold text-primary">₹{t.total}</p>
                                                     {t.paymentStatus && (
                                                         <span className={`text-xs mt-1 ${t.paymentStatus === 'Paid' ? 'text-green-600' : 'text-orange-600'
                                                             }`}>
@@ -298,7 +298,7 @@ export function CarDetails() {
                                                     </div>
                                                 </div>
                                                 <div className="text-right flex flex-col items-end gap-2">
-                                                    <p className="font-bold text-xl">${record.amount}</p>
+                                                    <p className="font-bold text-xl">₹{record.amount}</p>
                                                     <div className="flex gap-2">
                                                         <Button
                                                             variant="ghost"
@@ -432,12 +432,12 @@ export function CarDetails() {
                                     {priceDetails.breakdown.map((item, index) => (
                                         <div key={index} className="flex justify-between text-sm text-muted-foreground">
                                             <span>{item.label}</span>
-                                            <span>${item.amount}</span>
+                                            <span>₹{item.amount}</span>
                                         </div>
                                     ))}
                                     <div className="border-t pt-2 mt-2 flex justify-between text-sm font-bold">
                                         <span>Total</span>
-                                        <span>${priceDetails.total}</span>
+                                        <span>₹{priceDetails.total}</span>
                                     </div>
                                 </div>
                             ) : (

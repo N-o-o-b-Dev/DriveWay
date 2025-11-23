@@ -60,7 +60,7 @@ export function GlobalRentalDrawer({ isOpen, onClose }) {
 
                 if (remainingDays > 0) {
                     price += remainingDays * currentDailyRate
-                    breakdown.push({ label: `${remainingDays} Day${remainingDays > 1 ? 's' : ''} @ $${currentDailyRate}/day`, amount: remainingDays * currentDailyRate })
+                    breakdown.push({ label: `${remainingDays} Day${remainingDays > 1 ? 's' : ''} @ ₹${currentDailyRate}/day`, amount: remainingDays * currentDailyRate })
                 }
             }
             setPriceDetails({ total: price, breakdown })
@@ -209,12 +209,12 @@ export function GlobalRentalDrawer({ isOpen, onClose }) {
                                 {priceDetails.breakdown.map((item, index) => (
                                     <div key={index} className="flex justify-between text-sm text-muted-foreground">
                                         <span>{item.label}</span>
-                                        <span>${item.amount}</span>
+                                        <span>₹{item.amount}</span>
                                     </div>
                                 ))}
                                 <div className="border-t pt-2 mt-2 flex justify-between text-sm font-bold">
                                     <span>Total</span>
-                                    <span>${priceDetails.total}</span>
+                                    <span>₹{priceDetails.total}</span>
                                 </div>
                             </div>
                         ) : (

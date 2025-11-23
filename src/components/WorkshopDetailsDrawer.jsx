@@ -35,7 +35,7 @@ export function WorkshopDetailsDrawer({ isOpen, onClose, workshop }) {
                         <CardContent className="p-4 flex justify-between items-center">
                             <div>
                                 <p className="text-sm text-muted-foreground">Total Spent</p>
-                                <p className="text-2xl font-bold">${workshop.totalSpent}</p>
+                                <p className="text-2xl font-bold">₹{workshop.totalSpent}</p>
                             </div>
                             <div className="text-right">
                                 <p className="text-sm text-muted-foreground">Total Services</p>
@@ -66,7 +66,7 @@ export function WorkshopDetailsDrawer({ isOpen, onClose, workshop }) {
                                                 </div>
                                             </div>
                                             <div className="text-right flex flex-col items-end gap-2">
-                                                <p className="font-bold">${record.amount}</p>
+                                                <p className="font-bold">₹{record.amount}</p>
                                                 <div className="flex gap-2">
                                                     <Button
                                                         variant="ghost"

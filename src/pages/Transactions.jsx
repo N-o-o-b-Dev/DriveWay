@@ -30,7 +30,7 @@ export function Transactions() {
                                 </div>
                                 <div className="flex items-center gap-4">
                                     <div className="text-right">
-                                        <p className="font-bold text-xl">${transaction.total}</p>
+                                        <p className="font-bold text-xl">₹{transaction.total}</p>
                                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${transaction.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                                             }`}>
                                             {transaction.status}

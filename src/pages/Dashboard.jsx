@@ -30,7 +30,7 @@ export function Dashboard() {
         },
         {
             title: "Total Revenue",
-            value: `$${transactions.reduce((acc, t) => acc + t.total, 0)}`,
+            value: `₹${transactions.reduce((acc, t) => acc + t.total, 0)}`,
             icon: Receipt,
             description: "All time"
         }
@@ -156,7 +156,7 @@ export function Dashboard() {
                                                 <p className="text-sm font-medium leading-none">{customer?.name}</p>
                                                 <p className="text-sm text-muted-foreground">{customer?.email}</p>
                                             </div>
-                                            <div className="ml-auto font-medium">+${t.total}</div>
+                                            <div className="ml-auto font-medium">+₹{t.total}</div>
                                         </div>
                                     )
                                 })}
@@ -182,7 +182,7 @@ export function Dashboard() {
                                         </div>
                                         <div>
                                             <p className="font-medium">{car.make} {car.model}</p>
-                                            <p className="text-sm text-muted-foreground">Total Revenue: ${revenue}</p>
+                                            <p className="text-sm text-muted-foreground">Total Revenue: ₹{revenue}</p>
                                         </div>
                                     </div>
                                 )
