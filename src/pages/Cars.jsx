@@ -10,7 +10,7 @@ import { EditCarDrawer } from '../components/EditCarDrawer'
 export function Cars() {
     const { cars, addCar } = useDriveway()
     const [isAdding, setIsAdding] = useState(false)
-    const [newCar, setNewCar] = useState({ make: '', model: '', year: '', price: '', tenDayPrice: '', monthlyPrice: '', image: '' })
+    const [newCar, setNewCar] = useState({ make: '', model: '', year: '', price: '', tenDayPrice: '', monthlyPrice: '', plateNumber: '', image: '' })
     const [editingCar, setEditingCar] = useState(null)
 
     const handleImageChange = (e) => {
@@ -26,9 +26,13 @@ export function Cars() {
 
     const handleSubmit = (e) => {
         e.preventDefault()
+        if (cars.some(car => car.plateNumber === newCar.plateNumber)) {
+            alert('A car with this Plate Number already exists!')
+            return
+        }
         addCar({ ...newCar, status: 'Available' })
         setIsAdding(false)
-        setNewCar({ make: '', model: '', year: '', price: '', tenDayPrice: '', monthlyPrice: '', image: '' })
+        setNewCar({ make: '', model: '', year: '', price: '', tenDayPrice: '', monthlyPrice: '', plateNumber: '', image: '' })
     }
 
     return (
@@ -64,6 +68,12 @@ export function Cars() {
                                 placeholder="Year"
                                 value={newCar.year}
                                 onChange={e => setNewCar({ ...newCar, year: e.target.value })}
+                                required
+                            />
+                            <Input
+                                placeholder="Plate Number"
+                                value={newCar.plateNumber}
+                                onChange={e => setNewCar({ ...newCar, plateNumber: e.target.value })}
                                 required
                             />
                             <div className="grid grid-cols-3 gap-4">
@@ -123,7 +133,7 @@ export function Cars() {
                                     <div className="flex justify-between items-start mb-4">
                                         <div>
                                             <h3 className="font-bold text-xl">{car.make} {car.model}</h3>
-                                            <p className="text-muted-foreground">{car.year}</p>
+                                            <p className="text-muted-foreground">{car.year} • {car.plateNumber}</p>
                                         </div>
                                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${car.status === 'Available' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
                                             }`}>

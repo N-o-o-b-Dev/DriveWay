@@ -22,7 +22,7 @@ export function GlobalRentalDrawer({ isOpen, onClose }) {
         breakdown: []
     })
 
-    const selectedCar = cars.find(c => c.id === parseInt(rentalData.carId))
+    const selectedCar = cars.find(c => c.id === rentalData.carId)
 
     useEffect(() => {
         if (selectedCar && !rentalData.dailyRate) {
@@ -44,23 +44,26 @@ export function GlobalRentalDrawer({ isOpen, onClose }) {
             if (days > 0) {
                 let remainingDays = days
 
-                if (selectedCar.monthlyPrice && remainingDays >= 30) {
-                    const months = Math.floor(remainingDays / 30)
-                    price += months * selectedCar.monthlyPrice
-                    breakdown.push({ label: `${months} Month${months > 1 ? 's' : ''}`, amount: months * selectedCar.monthlyPrice })
-                    remainingDays %= 30
-                }
-
-                if (selectedCar.tenDayPrice && remainingDays >= 10) {
-                    const tenDayBlocks = Math.floor(remainingDays / 10)
-                    price += tenDayBlocks * selectedCar.tenDayPrice
-                    breakdown.push({ label: `${tenDayBlocks} 10-Day Block${tenDayBlocks > 1 ? 's' : ''}`, amount: tenDayBlocks * selectedCar.tenDayPrice })
-                    remainingDays %= 10
-                }
-
-                if (remainingDays > 0) {
-                    price += remainingDays * currentDailyRate
-                    breakdown.push({ label: `${remainingDays} Day${remainingDays > 1 ? 's' : ''} @ ₹${currentDailyRate}/day`, amount: remainingDays * currentDailyRate })
+                if (days >= 30 && selectedCar.monthlyPrice) {
+                    const effectiveDailyRate = selectedCar.monthlyPrice / 30
+                    price = Math.round(effectiveDailyRate * days)
+                    breakdown.push({
+                        label: `Monthly Rate Applied (${days} days @ ₹${Math.round(effectiveDailyRate)}/day)`,
+                        amount: price
+                    })
+                } else if (days >= 10 && selectedCar.tenDayPrice) {
+                    const effectiveDailyRate = selectedCar.tenDayPrice / 10
+                    price = Math.round(effectiveDailyRate * days)
+                    breakdown.push({
+                        label: `10-Day Rate Applied (${days} days @ ₹${Math.round(effectiveDailyRate)}/day)`,
+                        amount: price
+                    })
+                } else {
+                    price = Math.round(currentDailyRate * days)
+                    breakdown.push({
+                        label: `Standard Daily Rate (${days} days @ ₹${currentDailyRate}/day)`,
+                        amount: price
+                    })
                 }
             }
             setPriceDetails({ total: price, breakdown })
@@ -75,8 +78,8 @@ export function GlobalRentalDrawer({ isOpen, onClose }) {
 
         addTransaction({
             carId: selectedCar.id,
-            customerId: parseInt(rentalData.customerId),
-            dealerId: rentalData.dealerId ? parseInt(rentalData.dealerId) : null,
+            customerId: rentalData.customerId,
+            dealerId: rentalData.dealerId ? rentalData.dealerId : null,
             startDate: rentalData.startDate,
             endDate: rentalData.endDate,
             total: priceDetails.total,

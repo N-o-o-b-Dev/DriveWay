@@ -1,77 +1,96 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useState, useEffect } from 'react'
+import { database } from '../lib/firebase'
+import { ref, onValue, push, update, remove } from 'firebase/database'
 
 const DrivewayContext = createContext()
 
 export function DrivewayProvider({ children }) {
-    const [cars, setCars] = useState([
-        { id: 1, make: 'Tesla', model: 'Model 3', year: 2023, price: 150, tenDayPrice: 1200, monthlyPrice: 3500, image: 'https://images.unsplash.com/photo-1536700503339-1e4b06520771?q=80&w=2960&auto=format&fit=crop', status: 'Available' },
-        { id: 2, make: 'BMW', model: 'M4', year: 2024, price: 250, tenDayPrice: 2000, monthlyPrice: 5500, image: 'https://images.unsplash.com/photo-1617788138017-80ad40651399?q=80&w=2940&auto=format&fit=crop', status: 'Rented' },
-    ])
+    const [cars, setCars] = useState([])
+    const [customers, setCustomers] = useState([])
+    const [dealers, setDealers] = useState([])
+    const [transactions, setTransactions] = useState([])
+    const [maintenanceRecords, setMaintenanceRecords] = useState([])
 
-    const [customers, setCustomers] = useState([
-        { id: 1, name: 'John Doe', email: 'john@example.com', phone: '555-0123' },
-        { id: 2, name: 'Jane Smith', email: 'jane@example.com', phone: '555-0124' },
-    ])
+    // Helper to convert Firebase object to array
+    const snapshotToArray = (snapshot) => {
+        const data = snapshot.val()
+        if (!data) return []
+        return Object.entries(data).map(([id, value]) => ({ id, ...value }))
+    }
 
-    const [dealers, setDealers] = useState([
-        { id: 1, name: 'Downtown Motors', email: 'contact@downtownmotors.com', phone: '555-0101' },
-        { id: 2, name: 'Westside Auto', email: 'info@westsideauto.com', phone: '555-0102' }
-    ])
+    // Subscribe to Data
+    useEffect(() => {
+        const carsRef = ref(database, 'cars')
+        const customersRef = ref(database, 'customers')
+        const dealersRef = ref(database, 'dealers')
+        const transactionsRef = ref(database, 'transactions')
+        const maintenanceRef = ref(database, 'maintenanceRecords')
 
-    const [transactions, setTransactions] = useState([
-        { id: 1, carId: 2, customerId: 1, startDate: '2024-03-10', endDate: '2024-03-15', total: 1250, status: 'Active' },
-    ])
+        const unsubCars = onValue(carsRef, (snapshot) => setCars(snapshotToArray(snapshot)))
+        const unsubCustomers = onValue(customersRef, (snapshot) => setCustomers(snapshotToArray(snapshot)))
+        const unsubDealers = onValue(dealersRef, (snapshot) => setDealers(snapshotToArray(snapshot)))
+        const unsubTransactions = onValue(transactionsRef, (snapshot) => setTransactions(snapshotToArray(snapshot)))
+        const unsubMaintenance = onValue(maintenanceRef, (snapshot) => setMaintenanceRecords(snapshotToArray(snapshot)))
 
-    const [maintenanceRecords, setMaintenanceRecords] = useState([
-        { id: 1, carId: 1, workshopName: 'Speedy Fix Auto', workshopDetails: '123 Main St, 555-0123', amount: 150, date: '2024-02-15', description: 'Oil change and filter replacement' },
-        { id: 2, carId: 2, workshopName: 'Speedy Fix Auto', workshopDetails: '123 Main St, 555-0123', amount: 300, date: '2024-03-01', description: 'Brake pad replacement' },
-        { id: 3, carId: 1, workshopName: 'Luxury Car Care', workshopDetails: '456 Elite Ave, 555-0987', amount: 500, date: '2024-01-20', description: 'Annual detailing and inspection' },
-    ])
+        return () => {
+            unsubCars()
+            unsubCustomers()
+            unsubDealers()
+            unsubTransactions()
+            unsubMaintenance()
+        }
+    }, [])
 
     const addCar = (car) => {
-        setCars([...cars, { ...car, id: Date.now() }])
+        push(ref(database, 'cars'), car)
     }
 
     const addCustomer = (customer) => {
-        setCustomers([...customers, { ...customer, id: Date.now() }])
+        push(ref(database, 'customers'), customer)
     }
 
     const addDealer = (dealer) => {
-        setDealers([...dealers, { ...dealer, id: Date.now() }])
+        push(ref(database, 'dealers'), dealer)
     }
 
     const addTransaction = (transaction) => {
-        setTransactions([...transactions, { ...transaction, id: Date.now() }])
+        push(ref(database, 'transactions'), transaction)
     }
 
     const updateCar = (id, updatedCar) => {
-        setCars(cars.map(car => car.id === id ? { ...car, ...updatedCar } : car))
+        update(ref(database, `cars/${id}`), updatedCar)
+    }
+
+    const deleteCar = (id) => {
+        remove(ref(database, `cars/${id}`))
     }
 
     const updateCustomer = (id, updatedCustomer) => {
-        setCustomers(customers.map(customer => customer.id === id ? { ...customer, ...updatedCustomer } : customer))
+        update(ref(database, `customers/${id}`), updatedCustomer)
     }
 
     const updateDealer = (id, updatedDealer) => {
-        setDealers(dealers.map(dealer => dealer.id === id ? { ...dealer, ...updatedDealer } : dealer))
+        update(ref(database, `dealers/${id}`), updatedDealer)
     }
 
     const updateTransaction = (id, updatedTransaction) => {
-        setTransactions(transactions.map(transaction => transaction.id === id ? { ...transaction, ...updatedTransaction } : transaction))
+        update(ref(database, `transactions/${id}`), updatedTransaction)
     }
 
     const addMaintenanceRecord = (record) => {
-        setMaintenanceRecords([...maintenanceRecords, { ...record, id: Date.now() }])
+        push(ref(database, 'maintenanceRecords'), record)
         // Update car status to Maintenance
-        setCars(cars.map(car => car.id === record.carId ? { ...car, status: 'Maintenance' } : car))
+        // We need to find the car first to be sure, but simplified:
+        // Note: record.carId is now a Firebase key (string), passing it directly works if consistent
+        update(ref(database, `cars/${record.carId}`), { status: 'Maintenance' })
     }
 
     const updateMaintenanceRecord = (id, updatedRecord) => {
-        setMaintenanceRecords(maintenanceRecords.map(record => record.id === id ? { ...record, ...updatedRecord } : record))
+        update(ref(database, `maintenanceRecords/${id}`), updatedRecord)
 
         // If return date is set, update car status to Available
         if (updatedRecord.returnDate) {
-            setCars(cars.map(car => car.id === updatedRecord.carId ? { ...car, status: 'Available' } : car))
+            update(ref(database, `cars/${updatedRecord.carId}`), { status: 'Available' })
         }
     }
 
@@ -83,6 +102,7 @@ export function DrivewayProvider({ children }) {
             dealers,
             addCar,
             updateCar,
+            deleteCar,
             addCustomer,
             updateCustomer,
             addDealer,

@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useDriveway } from '../context/DrivewayContext'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/Tabs'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Sheet, SheetHeader, SheetTitle } from '../components/ui/Sheet'
-import { Calendar, User, Phone, Mail, Clock, Plus, Edit, Wrench } from 'lucide-react'
+import { Calendar, User, Phone, Mail, Clock, Plus, Edit, Wrench, Trash } from 'lucide-react'
 import { EditCarDrawer } from '../components/EditCarDrawer'
 import { AddMaintenanceDrawer } from '../components/AddMaintenanceDrawer'
 import { EditMaintenanceDrawer } from '../components/EditMaintenanceDrawer'
@@ -14,7 +14,8 @@ import { EditMaintenanceDrawer } from '../components/EditMaintenanceDrawer'
 
 export function CarDetails() {
     const { id } = useParams()
-    const { cars, transactions, customers, addTransaction, maintenanceRecords } = useDriveway()
+    const navigate = useNavigate()
+    const { cars, transactions, customers, addTransaction, maintenanceRecords, deleteCar } = useDriveway()
     const [activeTab, setActiveTab] = useState("overview")
     const [isRentalOpen, setIsRentalOpen] = useState(false)
     const [isEditOpen, setIsEditOpen] = useState(false)
@@ -41,8 +42,8 @@ export function CarDetails() {
         breakdown: []
     })
 
-    const car = cars.find(c => c.id === parseInt(id))
-    const carTransactions = transactions.filter(t => t.carId === parseInt(id))
+    const car = cars.find(c => c.id === id)
+    const carTransactions = transactions.filter(t => t.carId === id)
 
     useEffect(() => {
         if (car && !rentalData.dailyRate) {
@@ -64,23 +65,26 @@ export function CarDetails() {
             if (days > 0) {
                 let remainingDays = days
 
-                if (car.monthlyPrice && remainingDays >= 30) {
-                    const months = Math.floor(remainingDays / 30)
-                    price += months * car.monthlyPrice
-                    breakdown.push({ label: `${months} Month${months > 1 ? 's' : ''}`, amount: months * car.monthlyPrice })
-                    remainingDays %= 30
-                }
-
-                if (car.tenDayPrice && remainingDays >= 10) {
-                    const tenDayBlocks = Math.floor(remainingDays / 10)
-                    price += tenDayBlocks * car.tenDayPrice
-                    breakdown.push({ label: `${tenDayBlocks} 10-Day Block${tenDayBlocks > 1 ? 's' : ''}`, amount: tenDayBlocks * car.tenDayPrice })
-                    remainingDays %= 10
-                }
-
-                if (remainingDays > 0) {
-                    price += remainingDays * currentDailyRate
-                    breakdown.push({ label: `${remainingDays} Day${remainingDays > 1 ? 's' : ''} @ ₹${currentDailyRate}/day`, amount: remainingDays * currentDailyRate })
+                if (days >= 30 && car.monthlyPrice) {
+                    const effectiveDailyRate = car.monthlyPrice / 30
+                    price = Math.round(effectiveDailyRate * days)
+                    breakdown.push({
+                        label: `Monthly Rate Applied (${days} days @ ₹${Math.round(effectiveDailyRate)}/day)`,
+                        amount: price
+                    })
+                } else if (days >= 10 && car.tenDayPrice) {
+                    const effectiveDailyRate = car.tenDayPrice / 10
+                    price = Math.round(effectiveDailyRate * days)
+                    breakdown.push({
+                        label: `10-Day Rate Applied (${days} days @ ₹${Math.round(effectiveDailyRate)}/day)`,
+                        amount: price
+                    })
+                } else {
+                    price = Math.round(currentDailyRate * days)
+                    breakdown.push({
+                        label: `Standard Daily Rate (${days} days @ ₹${currentDailyRate}/day)`,
+                        amount: price
+                    })
                 }
             }
             setPriceDetails({ total: price, breakdown })
@@ -101,7 +105,7 @@ export function CarDetails() {
         e.preventDefault()
         addTransaction({
             carId: car.id,
-            customerId: parseInt(rentalData.customerId),
+            customerId: rentalData.customerId,
             startDate: rentalData.startDate,
             endDate: rentalData.endDate,
             total: priceDetails.total,
@@ -116,6 +120,13 @@ export function CarDetails() {
         setActiveTab("rentals")
     }
 
+    const handleDelete = () => {
+        if (window.confirm('Are you sure you want to delete this car? This action cannot be undone.')) {
+            deleteCar(car.id)
+            navigate('/cars')
+        }
+    }
+
     return (
         <div className="space-y-8 relative">
             <div className="flex justify-between items-start">
@@ -126,6 +137,9 @@ export function CarDetails() {
                 <div className="flex gap-2">
                     <Button variant="outline" onClick={() => setIsEditOpen(true)}>
                         <Edit className="mr-2 h-4 w-4" /> Edit
+                    </Button>
+                    <Button variant="destructive" onClick={handleDelete}>
+                        <Trash className="mr-2 h-4 w-4" /> Delete
                     </Button>
                     <Button onClick={() => setIsRentalOpen(true)}>
                         <Plus className="mr-2 h-4 w-4" /> Rent Car
@@ -283,8 +297,8 @@ export function CarDetails() {
                             </Button>
                         </div>
                         <div className="grid gap-4">
-                            {maintenanceRecords.filter(r => r.carId === parseInt(id)).length > 0 ? (
-                                maintenanceRecords.filter(r => r.carId === parseInt(id)).map((record) => (
+                            {maintenanceRecords.filter(r => r.carId === id).length > 0 ? (
+                                maintenanceRecords.filter(r => r.carId === id).map((record) => (
                                     <Card key={record.id}>
                                         <CardContent className="p-6">
                                             <div className="flex items-start justify-between">

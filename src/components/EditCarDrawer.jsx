@@ -14,6 +14,7 @@ export function EditCarDrawer({ isOpen, onClose, car }) {
         tenDayPrice: '',
         monthlyPrice: '',
         status: '',
+        plateNumber: '',
         image: ''
     })
 
@@ -27,6 +28,7 @@ export function EditCarDrawer({ isOpen, onClose, car }) {
                 tenDayPrice: car.tenDayPrice || '',
                 monthlyPrice: car.monthlyPrice || '',
                 status: car.status,
+                plateNumber: car.plateNumber || '',
                 image: car.image
             })
         }
@@ -73,6 +75,12 @@ export function EditCarDrawer({ isOpen, onClose, car }) {
                         placeholder="Year"
                         value={formData.year}
                         onChange={e => setFormData({ ...formData, year: e.target.value })}
+                        required
+                    />
+                    <Input
+                        placeholder="Plate Number"
+                        value={formData.plateNumber}
+                        onChange={e => setFormData({ ...formData, plateNumber: e.target.value })}
                         required
                     />
                     <div className="grid grid-cols-3 gap-4">
