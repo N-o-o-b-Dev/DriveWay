@@ -1,15 +1,27 @@
 import { useState, useEffect } from 'react'
-import { Link, useLocation } from 'react-router-dom'
-import { Car, Users, Receipt, LayoutDashboard, Moon, Sun, Plus, Wrench, Menu, X } from 'lucide-react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Car, Users, Receipt, LayoutDashboard, Moon, Sun, Plus, Wrench, Menu, X, FileText, LogOut } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { Button } from './ui/Button'
 import { GlobalRentalDrawer } from './GlobalRentalDrawer'
+import { useAuth } from '../context/AuthContext'
 
 export function Layout({ children }) {
     const [isDark, setIsDark] = useState(false)
     const [isRentalDrawerOpen, setIsRentalDrawerOpen] = useState(false)
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
     const location = useLocation()
+    const navigate = useNavigate()
+    const { logout } = useAuth()
+
+    async function handleLogout() {
+        try {
+            await logout()
+            navigate('/login')
+        } catch (error) {
+            console.error("Failed to log out", error)
+        }
+    }
 
     useEffect(() => {
         if (isDark) {
@@ -29,14 +41,19 @@ export function Layout({ children }) {
         { icon: Car, label: 'Cars', path: '/cars' },
         { icon: Users, label: 'Customers', path: '/customers' },
         { icon: Users, label: 'Dealers', path: '/dealers' },
-        { icon: Receipt, label: 'Transactions', path: '/transactions' },
+        { icon: FileText, label: 'Rentals', path: '/transactions' },
+        { icon: Receipt, label: 'Financials', path: '/financials' },
         { icon: Wrench, label: 'Maintenance', path: '/maintenance' },
     ]
 
     const SidebarContent = () => (
         <div className="flex flex-col h-full">
             <div className="p-6 flex justify-between items-center">
-                <h1 className="text-2xl font-bold text-primary">Driveway</h1>
+                {isDark ? (
+                    <h1 className="text-2xl font-bold text-primary">Driveway</h1>
+                ) : (
+                    <img src="/logo-day.png" alt="Driveway" className="h-10 object-contain" />
+                )}
                 <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setIsMobileMenuOpen(false)}>
                     <X size={20} />
                 </Button>
@@ -80,6 +97,14 @@ export function Layout({ children }) {
                     {isDark ? <Sun size={20} /> : <Moon size={20} />}
                     <span>{isDark ? 'Light Mode' : 'Dark Mode'}</span>
                 </Button>
+                <Button
+                    variant="ghost"
+                    className="w-full justify-start gap-3 mt-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={handleLogout}
+                >
+                    <LogOut size={20} />
+                    <span>Log Out</span>
+                </Button>
             </div>
         </div>
     )
@@ -88,7 +113,11 @@ export function Layout({ children }) {
         <div className="min-h-screen bg-surface dark:bg-background-dark flex flex-col md:flex-row">
             {/* Mobile Header */}
             <div className="md:hidden bg-background dark:bg-surface-dark border-b border-gray-200 dark:border-gray-800 p-4 flex justify-between items-center sticky top-0 z-20">
-                <h1 className="text-xl font-bold text-primary">Driveway</h1>
+                {isDark ? (
+                    <h1 className="text-xl font-bold text-primary">Driveway</h1>
+                ) : (
+                    <img src="/logo-day.png" alt="Driveway" className="h-8 object-contain" />
+                )}
                 <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(true)}>
                     <Menu size={24} />
                 </Button>

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { database } from '../lib/firebase'
 import { ref, onValue, push, update, remove } from 'firebase/database'
+import { generateUniqueId } from '../lib/utils'
 
 const DrivewayContext = createContext()
 
@@ -46,11 +47,25 @@ export function DrivewayProvider({ children }) {
     }
 
     const addCustomer = (customer) => {
-        push(ref(database, 'customers'), customer)
+        if (customers.some(c => c.phone === customer.phone)) {
+            throw new Error(`Customer with phone ${customer.phone} already exists!`)
+        }
+        const newCustomer = {
+            ...customer,
+            uniqueId: generateUniqueId('CUST')
+        }
+        push(ref(database, 'customers'), newCustomer)
     }
 
     const addDealer = (dealer) => {
-        push(ref(database, 'dealers'), dealer)
+        if (dealers.some(d => d.phone === dealer.phone)) {
+            throw new Error(`Dealer with phone ${dealer.phone} already exists!`)
+        }
+        const newDealer = {
+            ...dealer,
+            uniqueId: generateUniqueId('DLR')
+        }
+        push(ref(database, 'dealers'), newDealer)
     }
 
     const addTransaction = (transaction) => {
@@ -69,19 +84,29 @@ export function DrivewayProvider({ children }) {
         update(ref(database, `customers/${id}`), updatedCustomer)
     }
 
+    const deleteCustomer = (id) => {
+        remove(ref(database, `customers/${id}`))
+    }
+
     const updateDealer = (id, updatedDealer) => {
         update(ref(database, `dealers/${id}`), updatedDealer)
+    }
+
+    const deleteDealer = (id) => {
+        remove(ref(database, `dealers/${id}`))
     }
 
     const updateTransaction = (id, updatedTransaction) => {
         update(ref(database, `transactions/${id}`), updatedTransaction)
     }
 
+    const deleteTransaction = (id) => {
+        remove(ref(database, `transactions/${id}`))
+    }
+
     const addMaintenanceRecord = (record) => {
         push(ref(database, 'maintenanceRecords'), record)
         // Update car status to Maintenance
-        // We need to find the car first to be sure, but simplified:
-        // Note: record.carId is now a Firebase key (string), passing it directly works if consistent
         update(ref(database, `cars/${record.carId}`), { status: 'Maintenance' })
     }
 
@@ -94,9 +119,49 @@ export function DrivewayProvider({ children }) {
         }
     }
 
+    // Computed Cars with Dynamic Status
+    const derivedCars = cars.map(car => {
+        let status = car.status // key fallback
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+
+        // Check Maintenance
+        const isOnMaintenance = maintenanceRecords.some(r => {
+            if (r.carId !== car.id) return false
+            const start = new Date(r.date)
+            start.setHours(0, 0, 0, 0)
+            if (r.returnDate) {
+                const end = new Date(r.returnDate)
+                end.setHours(23, 59, 59, 999)
+                return today >= start && today <= end
+            }
+            return today >= start // Active if started and no return date confirmed
+        })
+
+        if (isOnMaintenance) {
+            status = 'On Maintenance'
+        }
+
+        // Check Rental (Overrides Maintenance if concurrent, assuming active use)
+        const isOnRent = transactions.some(t => {
+            if (t.carId !== car.id || t.status === 'Cancelled') return false
+            const start = new Date(t.startDate)
+            const end = new Date(t.endDate)
+            start.setHours(0, 0, 0, 0)
+            end.setHours(23, 59, 59, 999)
+            return today >= start && today <= end
+        })
+
+        if (isOnRent) {
+            status = 'On Rent'
+        }
+
+        return { ...car, status }
+    })
+
     return (
         <DrivewayContext.Provider value={{
-            cars,
+            cars: derivedCars,
             customers,
             transactions,
             dealers,
@@ -105,10 +170,13 @@ export function DrivewayProvider({ children }) {
             deleteCar,
             addCustomer,
             updateCustomer,
+            deleteCustomer,
             addDealer,
             updateDealer,
+            deleteDealer,
             addTransaction,
             updateTransaction,
+            deleteTransaction,
             maintenanceRecords,
             addMaintenanceRecord,
             updateMaintenanceRecord

@@ -1,7 +1,7 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card'
 
-export function RevenueChart({ data, title }) {
+export function RevenueChart({ data, title, color = "#ef4444" }) { // Default to Car Red
     return (
         <Card className="col-span-4">
             <CardHeader>
@@ -29,7 +29,7 @@ export function RevenueChart({ data, title }) {
                             cursor={{ fill: 'transparent' }}
                             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                         />
-                        <Bar dataKey="total" fill="#adfa1d" radius={[4, 4, 0, 0]} className="fill-primary" />
+                        <Bar dataKey="total" fill={color} radius={[4, 4, 0, 0]} />
                     </BarChart>
                 </ResponsiveContainer>
             </CardContent>

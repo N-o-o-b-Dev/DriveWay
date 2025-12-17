@@ -5,7 +5,7 @@ import { Input } from './ui/Input'
 import { Sheet, SheetHeader, SheetTitle } from './ui/Sheet'
 
 export function GlobalRentalDrawer({ isOpen, onClose }) {
-    const { cars, customers, dealers, addTransaction } = useDriveway()
+    const { cars, customers, dealers, addTransaction, transactions } = useDriveway()
 
     const [rentalData, setRentalData] = useState({
         carId: '',
@@ -75,6 +75,27 @@ export function GlobalRentalDrawer({ isOpen, onClose }) {
     const handleSubmit = (e) => {
         e.preventDefault()
         if (!selectedCar) return
+
+        // Date Overlap Validation
+        const newStart = new Date(rentalData.startDate)
+        const newEnd = new Date(rentalData.endDate)
+
+        const hasOverlap = transactions.some(t => {
+            if (t.carId !== selectedCar.id || t.status === 'Cancelled') return false
+            const existingStart = new Date(t.startDate)
+            const existingEnd = new Date(t.endDate)
+
+            return (
+                (newStart >= existingStart && newStart <= existingEnd) ||
+                (newEnd >= existingStart && newEnd <= existingEnd) ||
+                (newStart <= existingStart && newEnd >= existingEnd)
+            )
+        })
+
+        if (hasOverlap) {
+            alert('This car is already rented for the selected dates!')
+            return
+        }
 
         addTransaction({
             carId: selectedCar.id,

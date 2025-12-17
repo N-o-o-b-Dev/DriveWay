@@ -9,18 +9,32 @@ export function Dashboard() {
     const { cars, customers, transactions } = useDriveway()
     const [timeRange, setTimeRange] = useState('month') // 'week', 'month', 'year'
 
+    // Calculate Metrics
+    const currentMonth = new Date().getMonth()
+    const currentYear = new Date().getFullYear()
+
+    const monthlyRevenue = transactions
+        .filter(t => {
+            const date = new Date(t.startDate)
+            return date.getMonth() === currentMonth && date.getFullYear() === currentYear && t.status !== 'Cancelled'
+        })
+        .reduce((acc, t) => acc + (Number(t.total) || 0), 0)
+
+    const totalPaid = transactions
+        .reduce((acc, t) => acc + (Number(t.amountPaid) || 0), 0)
+
     const stats = [
         {
-            title: "Total Cars",
-            value: cars.length,
-            icon: Car,
-            description: "In your fleet"
+            title: "Result of this Month", // Monthly Revenue
+            value: `₹${monthlyRevenue.toLocaleString()}`,
+            icon: Calendar,
+            description: "Total Revenue this month"
         },
         {
-            title: "Active Rentals",
-            value: transactions.filter(t => t.status === 'Active').length,
-            icon: TrendingUp,
-            description: "Currently on road"
+            title: "Total Paid Amount", // Customer Paid
+            value: `₹${totalPaid.toLocaleString()}`,
+            icon: Receipt,
+            description: "Collected from customers"
         },
         {
             title: "Total Customers",
@@ -29,10 +43,10 @@ export function Dashboard() {
             description: "Registered users"
         },
         {
-            title: "Total Revenue",
-            value: `₹${transactions.reduce((acc, t) => acc + t.total, 0)}`,
-            icon: Receipt,
-            description: "All time"
+            title: "Active Rentals",
+            value: transactions.filter(t => t.status === 'Active').length,
+            icon: TrendingUp, // Changed icon to be distinct
+            description: "Currently on road"
         }
     ]
 
@@ -136,7 +150,7 @@ export function Dashboard() {
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
                 <div className="col-span-4">
-                    <RevenueChart data={chartData} title="Revenue Overview" />
+                    <RevenueChart data={chartData} title="Revenue Overview" color="#ef4444" />
                 </div>
                 <div className="col-span-3">
                     <Card className="h-full">
@@ -150,11 +164,11 @@ export function Dashboard() {
                                     return (
                                         <div key={t.id} className="flex items-center">
                                             <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                                                {customer?.name[0]}
+                                                {customer ? customer.name[0] : '?'}
                                             </div>
                                             <div className="ml-4 space-y-1">
-                                                <p className="text-sm font-medium leading-none">{customer?.name}</p>
-                                                <p className="text-sm text-muted-foreground">{customer?.email}</p>
+                                                <p className="text-sm font-medium leading-none">{customer ? customer.name : 'Unknown Customer'}</p>
+                                                <p className="text-sm text-muted-foreground">{customer ? customer.email : 'No email available'}</p>
                                             </div>
                                             <div className="ml-auto font-medium">+₹{t.total}</div>
                                         </div>

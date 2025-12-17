@@ -10,23 +10,33 @@ import { Calendar, User, Phone, Mail, Clock, Plus, Edit, Wrench, Trash } from 'l
 import { EditCarDrawer } from '../components/EditCarDrawer'
 import { AddMaintenanceDrawer } from '../components/AddMaintenanceDrawer'
 import { EditMaintenanceDrawer } from '../components/EditMaintenanceDrawer'
+import { EditTransactionDrawer } from '../components/EditTransactionDrawer'
+import { generateId } from '../lib/utils'
 
 
 export function CarDetails() {
     const { id } = useParams()
     const navigate = useNavigate()
-    const { cars, transactions, customers, addTransaction, maintenanceRecords, deleteCar } = useDriveway()
+    const { cars, transactions, customers, addTransaction, maintenanceRecords, deleteCar, deleteTransaction } = useDriveway()
     const [activeTab, setActiveTab] = useState("overview")
     const [isRentalOpen, setIsRentalOpen] = useState(false)
     const [isEditOpen, setIsEditOpen] = useState(false)
     const [isMaintenanceDrawerOpen, setIsMaintenanceDrawerOpen] = useState(false)
     const [editingRecord, setEditingRecord] = useState(null)
     const [isEditMaintenanceOpen, setIsEditMaintenanceOpen] = useState(false)
+    const [editingTransaction, setEditingTransaction] = useState(null)
+    const [isEditTransactionOpen, setIsEditTransactionOpen] = useState(false)
 
 
     const handleEditMaintenance = (record) => {
         setEditingRecord(record)
         setIsEditMaintenanceOpen(true)
+    }
+
+    const handleDeleteTransaction = (transactionId) => {
+        if (window.confirm('Are you sure you want to delete this rental record?')) {
+            deleteTransaction(transactionId)
+        }
     }
 
     const [rentalData, setRentalData] = useState({
@@ -103,6 +113,41 @@ export function CarDetails() {
 
     const handleRentSubmit = (e) => {
         e.preventDefault()
+
+        // Date Overlap Validation
+        const newStart = new Date(rentalData.startDate)
+        const newEnd = new Date(rentalData.endDate)
+
+        const hasOverlap = carTransactions.some(t => {
+            if (t.status === 'Cancelled') return false
+            const existingStart = new Date(t.startDate)
+            const existingEnd = new Date(t.endDate)
+
+            return (
+                (newStart >= existingStart && newStart <= existingEnd) ||
+                (newEnd >= existingStart && newEnd <= existingEnd) ||
+                (newStart <= existingStart && newEnd >= existingEnd)
+            )
+        })
+
+        if (hasOverlap) {
+            alert('This car is already rented for the selected dates!')
+            return
+        }
+
+
+        const payments = []
+        if (rentalData.paymentStatus === 'Paid') {
+            payments.push({
+                id: generateId(),
+                date: new Date().toISOString().split('T')[0],
+                amount: priceDetails.total,
+                type: 'Credit',
+                medium: 'Cash', // Default
+                notes: 'Initial Payment'
+            })
+        }
+
         addTransaction({
             carId: car.id,
             customerId: rentalData.customerId,
@@ -113,7 +158,9 @@ export function CarDetails() {
             paymentStatus: rentalData.paymentStatus,
             notes: rentalData.notes,
             breakdown: priceDetails.breakdown,
-            dailyRate: rentalData.dailyRate
+            dailyRate: rentalData.dailyRate,
+            payments: payments,
+            amountPaid: rentalData.paymentStatus === 'Paid' ? priceDetails.total : 0
         })
         setIsRentalOpen(false)
         setRentalData({ customerId: '', startDate: '', endDate: '', notes: '', paymentStatus: 'Pending', dailyRate: '' })
@@ -127,12 +174,49 @@ export function CarDetails() {
         }
     }
 
+    const insuranceAlert = () => {
+        if (!car.insuranceValidTo) return null
+        const today = new Date()
+        const validTo = new Date(car.insuranceValidTo)
+        const diffTime = validTo - today
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+        if (diffDays <= 3 && diffDays >= 0) {
+            return (
+                <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-lg mb-6 flex items-center gap-3 text-destructive">
+                    <Clock className="h-5 w-5" />
+                    <div>
+                        <p className="font-bold">Insurance Expiring Soon!</p>
+                        <p className="text-sm">Insurance is valid only for {diffDays} more day{diffDays !== 1 ? 's' : ''}. Please renew immediately.</p>
+                    </div>
+                </div>
+            )
+        } else if (diffDays < 0) {
+            return (
+                <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-lg mb-6 flex items-center gap-3 text-destructive">
+                    <Clock className="h-5 w-5" />
+                    <div>
+                        <p className="font-bold">Insurance Expired!</p>
+                        <p className="text-sm">Insurance expired on {car.insuranceValidTo}. Do not rent this car until renewed.</p>
+                    </div>
+                </div>
+            )
+        }
+        return null
+    }
+
     return (
         <div className="space-y-8 relative">
+            {insuranceAlert()}
             <div className="flex justify-between items-start">
                 <div>
                     <h2 className="text-4xl font-bold mb-2">{car.make} {car.model}</h2>
-                    <p className="text-xl text-muted-foreground">{car.year}</p>
+                    <p className="text-xl text-muted-foreground">{car.year} • {car.plateNumber}</p>
+                    <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
+                        {car.color && <span>Color: {car.color}</span>}
+                        {car.fuelType && <span>Fuel: {car.fuelType}</span>}
+                        {car.mileage && <span>Mileage: {car.mileage}</span>}
+                    </div>
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" onClick={() => setIsEditOpen(true)}>
@@ -173,24 +257,90 @@ export function CarDetails() {
 
                 <TabsContent value="overview">
                     <div className="grid gap-6 md:grid-cols-2">
-                        <div className="aspect-video w-full overflow-hidden rounded-lg">
-                            <img
-                                src={car.image}
-                                alt={`${car.make} ${car.model}`}
-                                className="h-full w-full object-cover"
-                            />
+                        <div className="space-y-6">
+                            <div className="aspect-video w-full overflow-hidden rounded-lg bg-muted">
+                                {car.image ? (
+                                    <img
+                                        src={car.image}
+                                        alt={`${car.make} ${car.model}`}
+                                        className="h-full w-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="flex items-center justify-center h-full text-muted-foreground">No Image</div>
+                                )}
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-2">
+                                {car.rcImage && (
+                                    <div className="aspect-video rounded bg-muted overflow-hidden relative group cursor-pointer" onClick={() => window.open(car.rcImage)}>
+                                        <img src={car.rcImage} alt="RC" className="w-full h-full object-cover" />
+                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-bold">View RC</div>
+                                    </div>
+                                )}
+                                {car.insuranceImage && (
+                                    <div className="aspect-video rounded bg-muted overflow-hidden relative group cursor-pointer" onClick={() => window.open(car.insuranceImage)}>
+                                        <img src={car.insuranceImage} alt="Insurance" className="w-full h-full object-cover" />
+                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-bold">View Insurance</div>
+                                    </div>
+                                )}
+                                {car.pocImage && (
+                                    <div className="aspect-video rounded bg-muted overflow-hidden relative group cursor-pointer" onClick={() => window.open(car.pocImage)}>
+                                        <img src={car.pocImage} alt="POC" className="w-full h-full object-cover" />
+                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-bold">View POC</div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
+
                         <div className="space-y-6">
                             <div className="flex items-center gap-4">
-                                <span className={`px-3 py-1 rounded-full text-sm font-medium ${car.status === 'Available' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                                <span className={`px-3 py-1 rounded-full text-sm font-medium ${car.status === 'Available' ? 'bg-green-100 text-green-800' :
+                                    car.status === 'On Rent' ? 'bg-blue-100 text-blue-800' :
+                                        car.status === 'On Maintenance' ? 'bg-orange-100 text-orange-800' :
+                                            'bg-yellow-100 text-yellow-800'
                                     }`}>
                                     {car.status}
                                 </span>
                             </div>
 
+                            {car.description && (
+                                <div>
+                                    <h4 className="font-semibold mb-2">Description</h4>
+                                    <p className="text-sm text-muted-foreground">{car.description}</p>
+                                </div>
+                            )}
+
+                            {(car.fitnessValidTo || car.taxValidTo || car.insuranceValidTo) && (
+                                <Card>
+                                    <CardHeader className="pb-3">
+                                        <CardTitle className="text-base">Validity</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="grid grid-cols-2 gap-4 text-sm">
+                                        {car.fitnessValidTo && (
+                                            <div>
+                                                <span className="text-muted-foreground block">Fitness</span>
+                                                <span className="font-medium">{car.fitnessValidTo}</span>
+                                            </div>
+                                        )}
+                                        {car.taxValidTo && (
+                                            <div>
+                                                <span className="text-muted-foreground block">Tax</span>
+                                                <span className="font-medium">{car.taxValidTo}</span>
+                                            </div>
+                                        )}
+                                        {car.insuranceValidTo && (
+                                            <div>
+                                                <span className="text-muted-foreground block">Insurance</span>
+                                                <span className="font-medium">{car.insuranceValidTo}</span>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            )}
+
                             <Card>
-                                <CardHeader>
-                                    <CardTitle>Pricing</CardTitle>
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-base">Pricing</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
                                     <div className="flex justify-between items-center border-b pb-2">
@@ -217,73 +367,75 @@ export function CarDetails() {
 
                 <TabsContent value="rentals">
                     <div className="space-y-4">
-                        <h3 className="text-2xl font-bold mb-4">Rental History</h3>
-                        <div className="grid gap-4">
-                            {carTransactions.map((t) => {
-                                const customer = customers.find(c => c.id === t.customerId)
-                                const duration = calculateDuration(t.startDate, t.endDate)
-                                return (
-                                    <Card key={t.id} className="overflow-hidden">
-                                        <div className={`h-2 w-full ${t.status === 'Active' ? 'bg-green-500' : 'bg-gray-200'}`} />
-                                        <CardContent className="p-6">
-                                            <div className="grid md:grid-cols-3 gap-6">
-                                                {/* Customer Info */}
-                                                <div className="space-y-2">
-                                                    <div className="flex items-center gap-2 font-semibold text-lg">
-                                                        <User className="h-4 w-4 text-primary" />
-                                                        {customer?.name}
-                                                    </div>
-                                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                        <Mail className="h-4 w-4" />
-                                                        {customer?.email}
-                                                    </div>
-                                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                        <Phone className="h-4 w-4" />
-                                                        {customer?.phone}
-                                                    </div>
-                                                </div>
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-2xl font-bold">Rental History</h3>
+                        </div>
 
-                                                {/* Rental Details */}
-                                                <div className="space-y-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <Calendar className="h-4 w-4 text-primary" />
-                                                        <span className="font-medium">{t.startDate} - {t.endDate}</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                        <Clock className="h-4 w-4" />
-                                                        {duration} Days Duration
-                                                    </div>
-                                                    {t.notes && (
-                                                        <div className="text-sm text-muted-foreground mt-2 italic">
-                                                            "{t.notes}"
-                                                        </div>
-                                                    )}
-                                                </div>
+                        <div className="border rounded-lg overflow-hidden">
+                            <div className="grid grid-cols-6 gap-4 p-4 bg-muted/50 font-medium text-sm">
+                                <div className="col-span-2">Customer</div>
+                                <div>Dates</div>
+                                <div>Amount</div>
+                                <div>Balance</div>
+                                <div className="text-right">Actions</div>
+                            </div>
+                            <div className="divide-y">
+                                {carTransactions.map((t) => {
+                                    const customer = customers.find(c => c.id === t.customerId)
+                                    const total = Number(t.total) || 0
+                                    const paid = Number(t.amountPaid) || 0
+                                    const balance = total - paid
 
-                                                {/* Status & Cost */}
-                                                <div className="flex flex-col items-end justify-center">
-                                                    <span className={`px-3 py-1 rounded-full text-xs font-medium mb-2 ${t.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                                                        }`}>
-                                                        {t.status}
-                                                    </span>
-                                                    <p className="text-2xl font-bold text-primary">₹{t.total}</p>
-                                                    {t.paymentStatus && (
-                                                        <span className={`text-xs mt-1 ${t.paymentStatus === 'Paid' ? 'text-green-600' : 'text-orange-600'
-                                                            }`}>
-                                                            {t.paymentStatus}
-                                                        </span>
-                                                    )}
+                                    return (
+                                        <div key={t.id} className="grid grid-cols-6 gap-4 p-4 items-center text-sm hover:bg-muted/20 transition-colors">
+                                            <div className="col-span-2">
+                                                <div className="font-medium">{customer?.name}</div>
+                                                <div className="text-xs text-muted-foreground">{customer?.phone}</div>
+                                            </div>
+                                            <div>
+                                                <div className="font-medium">{t.startDate}</div>
+                                                <div className="text-xs text-muted-foreground">to {t.endDate}</div>
+                                            </div>
+                                            <div>
+                                                <div className="font-medium">₹{total}</div>
+                                                <div className={`text-xs ${t.paymentStatus === 'Paid' ? 'text-green-600' : 'text-orange-600'}`}>
+                                                    {t.paymentStatus}
                                                 </div>
                                             </div>
-                                        </CardContent>
-                                    </Card>
-                                )
-                            })}
-                            {carTransactions.length === 0 && (
-                                <div className="text-center py-12 text-muted-foreground bg-surface rounded-lg">
-                                    No rental history found for this car.
-                                </div>
-                            )}
+                                            <div>
+                                                <div className={`font-medium ${balance > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                                                    ₹{balance}
+                                                </div>
+                                            </div>
+                                            <div className="flex justify-end gap-2">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => {
+                                                        setEditingTransaction(t)
+                                                        setIsEditTransactionOpen(true)
+                                                    }}
+                                                >
+                                                    <Edit className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="text-destructive hover:text-destructive"
+                                                    onClick={() => handleDeleteTransaction(t.id)}
+                                                >
+                                                    <Trash className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                                {carTransactions.length === 0 && (
+                                    <div className="p-8 text-center text-muted-foreground">
+                                        No rental history found.
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </TabsContent>
@@ -465,6 +617,12 @@ export function CarDetails() {
                     </form>
                 </div>
             </Sheet>
+
+            <EditTransactionDrawer
+                isOpen={isEditTransactionOpen}
+                onClose={() => setIsEditTransactionOpen(false)}
+                transaction={editingTransaction}
+            />
 
             <EditCarDrawer
                 isOpen={isEditOpen}
