@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useDriveway } from '../context/DrivewayContext'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
-import { Mail, Phone, Calendar, Car, Edit, ArrowLeft, User, ExternalLink, Store } from 'lucide-react'
+import { Mail, Phone, Calendar, Car, Edit, ArrowLeft, User, ExternalLink, Store, X } from 'lucide-react'
 import { EditTransactionDrawer } from '../components/EditTransactionDrawer'
 import {
     Table,
@@ -20,6 +20,7 @@ export function CustomerDetailsPage() {
     const { customers, transactions, dealers, cars } = useDriveway()
     const [customer, setCustomer] = useState(null)
     const [editingTransaction, setEditingTransaction] = useState(null)
+    const [expandedImage, setExpandedImage] = useState(null)
 
     useEffect(() => {
         const foundCustomer = customers.find(c => c.id === id)
@@ -104,7 +105,10 @@ export function CustomerDetailsPage() {
                     <ArrowLeft className="h-5 w-5" />
                 </Button>
                 <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden border-2 border-white shadow-sm">
+                    <div
+                        className={`h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden border-2 border-white shadow-sm ${customer.image ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                        onClick={() => customer.image && setExpandedImage(customer.image)}
+                    >
                         {customer.image ? (
                             <img src={customer.image} alt={customer.name} className="h-full w-full object-cover" />
                         ) : (
@@ -241,8 +245,8 @@ export function CustomerDetailsPage() {
                                                 </TableCell>
                                                 <TableCell className="align-top py-3">
                                                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${entry.type === 'Credit'
-                                                            ? 'bg-green-100 text-green-800'
-                                                            : 'bg-red-100 text-red-800'
+                                                        ? 'bg-green-100 text-green-800'
+                                                        : 'bg-red-100 text-red-800'
                                                         }`}>
                                                         {entry.type === 'Credit' ? 'Credit' : 'Debit'}
                                                     </span>
@@ -313,6 +317,28 @@ export function CustomerDetailsPage() {
                 onClose={() => setEditingTransaction(null)}
                 transaction={editingTransaction}
             />
+
+            {/* Expanded Image Overlay */}
+            {expandedImage && (
+                <div
+                    className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 animate-in fade-in duration-200"
+                    onClick={() => setExpandedImage(null)}
+                >
+                    <div className="relative max-w-4xl max-h-[90vh]">
+                        <img
+                            src={expandedImage}
+                            alt="Expanded Profile"
+                            className="max-w-full max-h-[90vh] object-contain rounded-md"
+                        />
+                        <button
+                            className="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors p-2"
+                            onClick={(e) => { e.stopPropagation(); setExpandedImage(null); }}
+                        >
+                            <X size={32} />
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

@@ -52,7 +52,7 @@ export function Layout({ children }) {
                 {isDark ? (
                     <h1 className="text-2xl font-bold text-primary">Driveway</h1>
                 ) : (
-                    <img src="/logo-day.png" alt="Driveway" className="h-10 object-contain" />
+                    <h1 className="text-2xl font-bold text-primary">Driveway</h1>
                 )}
                 <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setIsMobileMenuOpen(false)}>
                     <X size={20} />
@@ -114,9 +114,9 @@ export function Layout({ children }) {
             {/* Mobile Header */}
             <div className="md:hidden bg-background dark:bg-surface-dark border-b border-gray-200 dark:border-gray-800 p-4 flex justify-between items-center sticky top-0 z-20">
                 {isDark ? (
-                    <h1 className="text-xl font-bold text-primary">Driveway</h1>
+                    <h1 className="text-2xl font-bold text-primary">Driveway</h1>
                 ) : (
-                    <img src="/logo-day.png" alt="Driveway" className="h-8 object-contain" />
+                    <h1 className="text-2xl font-bold text-primary">Driveway</h1>
                 )}
                 <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(true)}>
                     <Menu size={24} />
