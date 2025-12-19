@@ -2,19 +2,21 @@ import { useState } from 'react'
 import { useDriveway } from '../context/DrivewayContext'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
-import { Wrench, MapPin, Phone, ArrowRight, Plus, Edit } from 'lucide-react'
+import { Wrench, MapPin, Phone, ArrowRight, Plus, Edit, Trash2 } from 'lucide-react'
 import { WorkshopDetailsDrawer } from '../components/WorkshopDetailsDrawer'
 import { AddMaintenanceDrawer } from '../components/AddMaintenanceDrawer'
 import { EditMaintenanceDrawer } from '../components/EditMaintenanceDrawer'
+import { EditWorkshopDrawer } from '../components/EditWorkshopDrawer' // Import
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../components/ui/Tabs'
 
 export function Maintenance() {
-    const { maintenanceRecords, cars } = useDriveway()
+    const { maintenanceRecords, cars, deleteWorkshop, deleteMaintenanceRecord } = useDriveway()
     const [selectedWorkshop, setSelectedWorkshop] = useState(null)
     const [isDrawerOpen, setIsDrawerOpen] = useState(false)
     const [isAddMaintenanceOpen, setIsAddMaintenanceOpen] = useState(false)
     const [editingRecord, setEditingRecord] = useState(null)
     const [isEditMaintenanceOpen, setIsEditMaintenanceOpen] = useState(false)
+    const [isEditWorkshopOpen, setIsEditWorkshopOpen] = useState(false) // New state
     const [activeTab, setActiveTab] = useState("workshops")
 
     if (!maintenanceRecords || !cars) {
@@ -46,6 +48,23 @@ export function Maintenance() {
         setIsEditMaintenanceOpen(true)
     }
 
+    const handleEditWorkshop = (workshop) => {
+        setSelectedWorkshop(workshop)
+        setIsEditWorkshopOpen(true)
+    }
+
+    const handleDeleteWorkshop = (workshopName) => {
+        if (window.confirm(`Are you sure you want to delete "${workshopName}"?\nThis will permanently delete ALL maintenance history associated with this workshop.`)) {
+            deleteWorkshop(workshopName)
+        }
+    }
+
+    const handleDeleteRecord = (id) => {
+        if (window.confirm('Are you sure you want to delete this maintenance record?')) {
+            deleteMaintenanceRecord(id)
+        }
+    }
+
     return (
         <div className="space-y-8">
             <div className="flex justify-between items-center">
@@ -56,6 +75,7 @@ export function Maintenance() {
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>
+                {/* ... Tabs List ... */}
                 <div className="border-b border-gray-200 dark:border-gray-800 mb-6">
                     <TabsList className="bg-transparent p-0">
                         <TabsTrigger
@@ -78,10 +98,30 @@ export function Maintenance() {
                         {Object.values(workshops).map((workshop) => (
                             <Card key={workshop.name} className="flex flex-col">
                                 <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <Wrench className="h-5 w-5" />
-                                        {workshop.name}
-                                    </CardTitle>
+                                    <div className="flex justify-between items-start">
+                                        <CardTitle className="flex items-center gap-2">
+                                            <Wrench className="h-5 w-5" />
+                                            {workshop.name}
+                                        </CardTitle>
+                                        <div className="flex gap-1">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 w-8 p-0"
+                                                onClick={() => handleEditWorkshop(workshop)}
+                                            >
+                                                <Edit className="h-4 w-4 text-muted-foreground" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                                                onClick={() => handleDeleteWorkshop(workshop.name)}
+                                            >
+                                                <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                                            </Button>
+                                        </div>
+                                    </div>
                                     <p className="text-sm text-muted-foreground flex items-center gap-1">
                                         <MapPin className="h-3 w-3" /> {workshop.details}
                                         {workshop.records[0]?.phoneNumber && (
@@ -147,6 +187,9 @@ export function Maintenance() {
                                             <div className="space-y-1">
                                                 <div className="flex items-center gap-2">
                                                     <h4 className="font-bold text-lg">{record.workshopName}</h4>
+                                                    <span className={`text-xs px-2 py-0.5 rounded-full ${record.paymentStatus === 'Pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+                                                        {record.paymentStatus || 'Paid'}
+                                                    </span>
                                                     <span className="text-sm text-muted-foreground">• {car ? `${car.make} ${car.model}` : 'Unknown Car'}</span>
                                                 </div>
                                                 <p className="text-sm text-muted-foreground">{record.description || 'No description provided'}</p>
@@ -169,7 +212,12 @@ export function Maintenance() {
                                                 </div>
                                             </div>
                                             <div className="text-right flex flex-col items-end gap-2">
-                                                <p className="font-bold text-xl">₹{record.amount}</p>
+                                                <div>
+                                                    <p className="font-bold text-xl">₹{record.amount}</p>
+                                                    {record.amountPaid !== undefined && record.amountPaid < record.amount && (
+                                                        <p className="text-xs text-muted-foreground">Paid: ₹{record.amountPaid}</p>
+                                                    )}
+                                                </div>
                                                 <div className="flex gap-2">
                                                     <Button
                                                         variant="ghost"
@@ -178,6 +226,14 @@ export function Maintenance() {
                                                         onClick={() => handleEditMaintenance(record)}
                                                     >
                                                         <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                                                        onClick={() => handleDeleteRecord(record.id)}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
                                                     </Button>
                                                     {record.image && (
                                                         <Button
@@ -223,6 +279,12 @@ export function Maintenance() {
                 isOpen={isEditMaintenanceOpen}
                 onClose={() => setIsEditMaintenanceOpen(false)}
                 record={editingRecord}
+            />
+
+            <EditWorkshopDrawer
+                isOpen={isEditWorkshopOpen}
+                onClose={() => setIsEditWorkshopOpen(false)}
+                workshop={selectedWorkshop}
             />
         </div>
     )

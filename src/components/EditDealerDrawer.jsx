@@ -135,18 +135,19 @@ export function EditDealerDrawer({ isOpen, onClose, dealer }) {
                             </div>
                             <div className="space-y-2">
                                 <label className="text-xs font-medium">Shop Act</label>
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => handleImageChange('panImage', e)}
-                                className="cursor-pointer text-xs"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-xs font-medium">GST Certificate</label>
                                 <Input
                                     type="file"
                                     accept="image/*"
-                                    onChange={(e) => handleImageChange('gstImage', e)}
+                                    onChange={(e) => handleImageChange('shopAct', e)}
+                                    className="cursor-pointer text-xs"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-medium">PAN Card Image</label>
+                                <Input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => handleImageChange('panImage', e)}
                                     className="cursor-pointer text-xs"
                                 />
                             </div>

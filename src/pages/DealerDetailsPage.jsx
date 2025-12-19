@@ -37,12 +37,36 @@ export function DealerDetailsPage() {
     const customerIds = [...new Set(dealerTransactions.map(t => t.customerId).filter(id => id))]
     const dealerCustomers = customers.filter(c => customerIds.includes(c.id))
 
+    // Generic Image Viewer
+    const handleViewImage = (imageDataUrl, title = "Image Preview") => {
+        if (!imageDataUrl) return
+        const win = window.open("")
+        win.document.write(`
+            <html>
+                <head><title>${title}</title></head>
+                <body style="margin:0; display:flex; justify-content:center; align-items:center; background:#f0f0f0; height:100vh;">
+                    <img src="${imageDataUrl}" style="max-width:100%; max-height:100vh; object-fit:contain; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);" />
+                </body>
+            </html>
+        `)
+        win.document.close()
+    }
+
     return (
         <div className="space-y-6">
             <div className="flex items-center gap-4">
                 <Button variant="ghost" size="icon" onClick={() => navigate('/dealers')}>
                     <ArrowLeft className="h-5 w-5" />
                 </Button>
+                {dealer.image ? (
+                    <div className="h-16 w-16 rounded-full overflow-hidden border-2 border-muted cursor-pointer" onClick={() => handleViewImage(dealer.image, "Profile Image")}>
+                        <img src={dealer.image} alt={dealer.name} className="h-full w-full object-cover" />
+                    </div>
+                ) : (
+                    <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-2xl">
+                        {dealer.name[0]}
+                    </div>
+                )}
                 <h1 className="text-3xl font-bold tracking-tight">{dealer.name}</h1>
             </div>
 
@@ -111,31 +135,31 @@ export function DealerDetailsPage() {
                         <h3 className="font-semibold text-lg">Documents</h3>
                         <div className="grid grid-cols-4 gap-2">
                             {dealer.logo && (
-                                <div className="aspect-square rounded bg-muted overflow-hidden relative group cursor-pointer" onClick={() => window.open(dealer.logo)}>
+                                <div className="aspect-square rounded bg-muted overflow-hidden relative group cursor-pointer" onClick={() => handleViewImage(dealer.logo, "Logo")}>
                                     <img src={dealer.logo} alt="Logo" className="w-full h-full object-cover" />
                                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-bold">Logo</div>
                                 </div>
                             )}
                             {dealer.proof && (
-                                <div className="aspect-square rounded bg-muted overflow-hidden relative group cursor-pointer" onClick={() => window.open(dealer.proof)}>
+                                <div className="aspect-square rounded bg-muted overflow-hidden relative group cursor-pointer" onClick={() => handleViewImage(dealer.proof, "Proof")}>
                                     <img src={dealer.proof} alt="Proof" className="w-full h-full object-cover" />
                                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-bold">Proof</div>
                                 </div>
                             )}
                             {dealer.altProof && (
-                                <div className="aspect-square rounded bg-muted overflow-hidden relative group cursor-pointer" onClick={() => window.open(dealer.altProof)}>
+                                <div className="aspect-square rounded bg-muted overflow-hidden relative group cursor-pointer" onClick={() => handleViewImage(dealer.altProof, "Alt Proof")}>
                                     <img src={dealer.altProof} alt="Alt Proof" className="w-full h-full object-cover" />
                                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-bold">Alt Proof</div>
                                 </div>
                             )}
                             {dealer.shopAct && (
-                                <div className="aspect-square rounded bg-muted overflow-hidden relative group cursor-pointer" onClick={() => window.open(dealer.shopAct)}>
+                                <div className="aspect-square rounded bg-muted overflow-hidden relative group cursor-pointer" onClick={() => handleViewImage(dealer.shopAct, "Shop Act")}>
                                     <img src={dealer.shopAct} alt="Shop Act" className="w-full h-full object-cover" />
                                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-bold">Shop Act</div>
                                 </div>
                             )}
                             {dealer.panImage && (
-                                <div className="aspect-square rounded bg-muted overflow-hidden relative group cursor-pointer" onClick={() => window.open(dealer.panImage)}>
+                                <div className="aspect-square rounded bg-muted overflow-hidden relative group cursor-pointer" onClick={() => handleViewImage(dealer.panImage, "PAN Image")}>
                                     <img src={dealer.panImage} alt="PAN" className="w-full h-full object-cover" />
                                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-bold">PAN</div>
                                 </div>
@@ -167,7 +191,7 @@ export function DealerDetailsPage() {
 
                                                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
                                                     <Calendar className="h-4 w-4" />
-                                                    {transaction.startDate} - {transaction.endDate}
+                                                    {new Date(transaction.startDate).toLocaleString()} - {new Date(transaction.endDate).toLocaleString()}
                                                 </div>
 
                                                 <div className="flex justify-between items-center pt-2 border-t">

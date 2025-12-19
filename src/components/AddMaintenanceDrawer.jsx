@@ -6,17 +6,53 @@ import { Sheet, SheetHeader, SheetTitle } from './ui/Sheet'
 import { Upload } from 'lucide-react'
 
 export function AddMaintenanceDrawer({ isOpen, onClose, carId }) {
-    const { addMaintenanceRecord, cars } = useDriveway()
+    const { addMaintenanceRecord, cars, maintenanceRecords } = useDriveway()
     const [selectedCarId, setSelectedCarId] = useState(carId || '')
+    const [useExistingWorkshop, setUseExistingWorkshop] = useState(false)
     const [formData, setFormData] = useState({
         workshopName: '',
         workshopDetails: '',
         phoneNumber: '',
         amount: '',
+        amountPaid: '',
         date: '',
+        returnDate: '',
+        paymentStatus: 'Paid',
         description: '',
         image: null
     })
+
+    // Extract unique workshops from existing records
+    const existingWorkshops = maintenanceRecords.reduce((acc, record) => {
+        if (!acc.some(w => w.name === record.workshopName)) {
+            acc.push({
+                name: record.workshopName,
+                details: record.workshopDetails,
+                phone: record.phoneNumber
+            })
+        }
+        return acc
+    }, [])
+
+    const handleWorkshopSelect = (name) => {
+        const workshop = existingWorkshops.find(w => w.name === name)
+        if (workshop) {
+            setFormData(prev => ({
+                ...prev,
+                workshopName: workshop.name,
+                workshopDetails: workshop.details || '',
+                phoneNumber: workshop.phone || ''
+            }))
+        } else {
+            // Clearing selection
+            setFormData(prev => ({
+                ...prev,
+                workshopName: '',
+                workshopDetails: '',
+                phoneNumber: ''
+            }))
+        }
+    }
 
     const handleImageUpload = (e) => {
         const file = e.target.files[0]
@@ -36,8 +72,9 @@ export function AddMaintenanceDrawer({ isOpen, onClose, carId }) {
 
         addMaintenanceRecord({
             ...formData,
-            carId: parseInt(finalCarId),
-            amount: formData.amount ? parseFloat(formData.amount) : 0
+            carId: finalCarId,
+            amount: formData.amount ? parseFloat(formData.amount) : 0,
+            amountPaid: formData.amountPaid ? parseFloat(formData.amountPaid) : 0
         })
         onClose()
         setFormData({
@@ -45,11 +82,15 @@ export function AddMaintenanceDrawer({ isOpen, onClose, carId }) {
             workshopDetails: '',
             phoneNumber: '',
             amount: '',
+            amountPaid: '',
             date: '',
+            returnDate: '',
+            paymentStatus: 'Paid',
             description: '',
             image: null
         })
         if (!carId) setSelectedCarId('')
+        setUseExistingWorkshop(false)
     }
 
     return (
@@ -75,20 +116,54 @@ export function AddMaintenanceDrawer({ isOpen, onClose, carId }) {
                             </select>
                         </div>
                     )}
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">Workshop Name</label>
-                        <Input
-                            value={formData.workshopName}
-                            onChange={e => setFormData({ ...formData, workshopName: e.target.value })}
-                            required
+
+                    {/* Workshop Selection Toggle */}
+                    <div className="flex items-center space-x-2 mb-2">
+                        <input
+                            type="checkbox"
+                            id="useExisting"
+                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                            checked={useExistingWorkshop}
+                            onChange={(e) => setUseExistingWorkshop(e.target.checked)}
                         />
+                        <label htmlFor="useExisting" className="text-sm font-medium">Select from Existing Workshops</label>
                     </div>
+
+                    {useExistingWorkshop ? (
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Select Workshop</label>
+                            <select
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-surface-dark dark:text-text-dark dark:border-surface"
+                                value={formData.workshopName}
+                                onChange={e => handleWorkshopSelect(e.target.value)}
+                                required
+                            >
+                                <option value="">Select a workshop...</option>
+                                {existingWorkshops.map((w, idx) => (
+                                    <option key={idx} value={w.name}>{w.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Workshop Name</label>
+                            <Input
+                                value={formData.workshopName}
+                                onChange={e => setFormData({ ...formData, workshopName: e.target.value })}
+                                required
+                                placeholder="Enter new workshop name"
+                            />
+                        </div>
+                    )}
+
                     <div className="space-y-2">
                         <label className="text-sm font-medium">Workshop Address</label>
                         <Input
                             value={formData.workshopDetails}
                             onChange={e => setFormData({ ...formData, workshopDetails: e.target.value })}
                             required
+                            readOnly={useExistingWorkshop} // Read-only if selected from existing
+                            className={useExistingWorkshop ? "bg-muted text-muted-foreground" : ""}
                         />
                     </div>
                     <div className="space-y-2">
@@ -97,17 +172,39 @@ export function AddMaintenanceDrawer({ isOpen, onClose, carId }) {
                             value={formData.phoneNumber}
                             onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })}
                             placeholder="Optional"
+                            readOnly={useExistingWorkshop} // Read-only if selected from existing
+                            className={useExistingWorkshop ? "bg-muted text-muted-foreground" : ""}
                         />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Amount</label>
+                            <label className="text-sm font-medium">Total Amount</label>
                             <Input
                                 type="number"
                                 value={formData.amount}
                                 onChange={e => setFormData({ ...formData, amount: e.target.value })}
-                                placeholder="Optional"
+                                placeholder="Total Bill"
                             />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Amount Paid</label>
+                            <Input
+                                type="number"
+                                value={formData.amountPaid}
+                                onChange={e => setFormData({ ...formData, amountPaid: e.target.value })}
+                                placeholder="Paid so far"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Payment Status</label>
+                            <select
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-surface-dark dark:text-text-dark dark:border-surface"
+                                value={formData.paymentStatus}
+                                onChange={e => setFormData({ ...formData, paymentStatus: e.target.value })}
+                            >
+                                <option value="Paid">Paid</option>
+                                <option value="Pending">Pending</option>
+                            </select>
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Date</label>
@@ -118,6 +215,16 @@ export function AddMaintenanceDrawer({ isOpen, onClose, carId }) {
                                 required
                             />
                         </div>
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Return Date (Optional)</label>
+                        <Input
+                            type="date"
+                            value={formData.returnDate}
+                            onChange={e => setFormData({ ...formData, returnDate: e.target.value })}
+                            placeholder="Select return date"
+                        />
+                        <p className="text-xs text-muted-foreground">Setting a return date will mark the car as Available.</p>
                     </div>
                     <div className="space-y-2">
                         <label className="text-sm font-medium">Description</label>

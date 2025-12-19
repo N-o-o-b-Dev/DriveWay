@@ -1,14 +1,17 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useDriveway } from '../context/DrivewayContext'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
-import { Plus, Edit } from 'lucide-react'
+import { Plus, Edit, Car, Calendar, CreditCard, Fuel, ExternalLink } from 'lucide-react'
 import { EditCarDrawer } from '../components/EditCarDrawer'
+import { Dialog, DialogHeader, DialogTitle } from '../components/ui/Dialog'
+import { cn } from '../utils/cn'
 
 export function Cars() {
     const { cars, addCar } = useDriveway()
+    const navigate = useNavigate()
     const [isAdding, setIsAdding] = useState(false)
     const [newCar, setNewCar] = useState({
         make: '',
@@ -31,6 +34,7 @@ export function Cars() {
         pocImage: ''
     })
     const [editingCar, setEditingCar] = useState(null)
+    const [quickViewCar, setQuickViewCar] = useState(null)
 
     const handleImageChange = (field, e) => {
         const file = e.target.files[0]
@@ -239,55 +243,133 @@ export function Cars() {
                 </Card>
             )}
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 items-start">
                 {cars.map((car) => (
-                    <div key={car.id} className="relative group">
-                        <Link to={`/cars/${car.id}`}>
-                            <Card className="overflow-hidden hover:shadow-lg transition-shadow h-full">
-                                <div className="aspect-video w-full overflow-hidden">
-                                    <img
-                                        src={car.image}
-                                        alt={`${car.make} ${car.model}`}
-                                        className="h-full w-full object-cover transition-transform hover:scale-105"
-                                    />
+                    <Card
+                        key={car.id}
+                        className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group"
+                        onClick={() => setQuickViewCar(car)}
+                    >
+                        <div className="aspect-video w-full overflow-hidden relative">
+                            <img
+                                src={car.image}
+                                alt={`${car.make} ${car.model}`}
+                                className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                            />
+                            <div className="absolute top-2 right-2">
+                                <span className={cn(
+                                    "px-2 py-1 rounded-full text-xs font-medium shadow-sm border",
+                                    car.status === 'Available' ? 'bg-green-100 text-green-800 border-green-200' :
+                                        car.status === 'On Rent' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                                            car.status === 'On Maintenance' ? 'bg-orange-100 text-orange-800 border-orange-200' :
+                                                'bg-yellow-100 text-yellow-800 border-yellow-200'
+                                )}>
+                                    {car.status}
+                                </span>
+                            </div>
+                        </div>
+                        <CardContent className="p-4">
+                            <div className="flex justify-between items-start mb-2">
+                                <div>
+                                    <h3 className="font-bold text-lg leading-none mb-1">{car.make} {car.model}</h3>
+                                    <p className="text-sm text-muted-foreground">{car.year} • {car.plateNumber}</p>
                                 </div>
-                                <CardContent className="p-6">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div>
-                                            <h3 className="font-bold text-xl">{car.make} {car.model}</h3>
-                                            <p className="text-muted-foreground">{car.year} • {car.plateNumber}</p>
-                                        </div>
-                                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${car.status === 'Available' ? 'bg-green-100 text-green-800' :
-                                            car.status === 'On Rent' ? 'bg-blue-100 text-blue-800' :
-                                                car.status === 'On Maintenance' ? 'bg-orange-100 text-orange-800' :
-                                                    'bg-yellow-100 text-yellow-800'
-                                            }`}>
-                                            {car.status}
-                                        </span>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <p className="text-lg font-bold text-primary">₹{car.price}<span className="text-sm font-normal text-muted-foreground">/day</span></p>
-                                        {car.monthlyPrice && (
-                                            <p className="text-sm text-muted-foreground">₹{car.monthlyPrice}/month</p>
-                                        )}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </Link>
-                        <Button
-                            variant="secondary"
-                            size="icon"
-                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                            onClick={(e) => {
-                                e.preventDefault()
-                                setEditingCar(car)
-                            }}
-                        >
-                            <Edit className="h-4 w-4" />
-                        </Button>
-                    </div>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-lg font-bold text-primary">₹{car.price}<span className="text-sm font-normal text-muted-foreground">/day</span></p>
+                                {car.monthlyPrice && (
+                                    <p className="text-xs text-muted-foreground">₹{car.monthlyPrice}/month</p>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
                 ))}
             </div>
+
+            <Dialog isOpen={!!quickViewCar} onClose={() => setQuickViewCar(null)}>
+                {quickViewCar && (
+                    <div className="space-y-6">
+                        {/* Header Image */}
+                        {quickViewCar.image && (
+                            <div className="relative w-full aspect-video rounded-lg overflow-hidden border">
+                                <img src={quickViewCar.image} className="object-cover w-full h-full" alt="Car" />
+                                <div className="absolute top-2 right-2">
+                                    <span className={cn(
+                                        "px-2 py-1 rounded-full text-xs font-medium shadow-sm border",
+                                        quickViewCar.status === 'Available' ? 'bg-green-100 text-green-800 border-green-200' :
+                                            quickViewCar.status === 'On Rent' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                                                quickViewCar.status === 'On Maintenance' ? 'bg-orange-100 text-orange-800 border-orange-200' :
+                                                    'bg-yellow-100 text-yellow-800 border-yellow-200'
+                                    )}>
+                                        {quickViewCar.status}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <DialogTitle className="text-2xl mb-1">{quickViewCar.make} {quickViewCar.model}</DialogTitle>
+                                <p className="text-base text-muted-foreground">{quickViewCar.year} • <span className="font-mono bg-muted px-1 rounded text-foreground">{quickViewCar.plateNumber}</span></p>
+                                {quickViewCar.color && <p className="text-sm text-muted-foreground mt-1 capitalize">{quickViewCar.color}</p>}
+                            </div>
+                            <div className="text-right">
+                                <p className="text-xl font-bold text-primary">₹{quickViewCar.price}<span className="text-sm font-normal text-muted-foreground">/day</span></p>
+                                {quickViewCar.monthlyPrice && <p className="text-sm text-muted-foreground">₹{quickViewCar.monthlyPrice}/mo</p>}
+                            </div>
+                        </div>
+
+                        {/* Quick Stats Grid */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="p-3 border rounded-lg bg-muted/20 flex items-center gap-3">
+                                <Fuel className="h-5 w-5 text-muted-foreground" />
+                                <div>
+                                    <p className="text-xs text-muted-foreground font-medium">Fuel Type</p>
+                                    <p className="font-semibold">{quickViewCar.fuelType}</p>
+                                </div>
+                            </div>
+                            <div className="p-3 border rounded-lg bg-muted/20 flex items-center gap-3">
+                                <ExternalLink className="h-5 w-5 text-muted-foreground" />
+                                <div>
+                                    <p className="text-xs text-muted-foreground font-medium">Mileage</p>
+                                    <p className="font-semibold">{quickViewCar.mileage || 'N/A'}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Validity Brief */}
+                        {(quickViewCar.insuranceValidTo || quickViewCar.fitnessValidTo) && (
+                            <div className="text-xs text-muted-foreground space-y-1 bg-muted/20 p-3 rounded-lg border">
+                                <p className="font-medium text-foreground mb-1">Validity</p>
+                                {quickViewCar.insuranceValidTo && <div className="flex justify-between"><span>Insurance:</span> <span>{new Date(quickViewCar.insuranceValidTo).toLocaleDateString()}</span></div>}
+                                {quickViewCar.fitnessValidTo && <div className="flex justify-between"><span>Fitness:</span> <span>{new Date(quickViewCar.fitnessValidTo).toLocaleDateString()}</span></div>}
+                            </div>
+                        )}
+
+                        <div className="flex gap-2 pt-2">
+                            <Button
+                                className="flex-1"
+                                onClick={() => {
+                                    setQuickViewCar(null)
+                                    navigate('/cars/' + quickViewCar.id)
+                                }}
+                            >
+                                <Car className="mr-2 h-4 w-4" /> View Full Details
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => {
+                                    setQuickViewCar(null)
+                                    setEditingCar(quickViewCar)
+                                }}
+                            >
+                                <Edit className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </Dialog>
 
             <EditCarDrawer
                 isOpen={!!editingCar}

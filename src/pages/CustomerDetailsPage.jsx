@@ -251,7 +251,9 @@ export function CustomerDetailsPage() {
                                                         {entry.type === 'Credit' ? 'Credit' : 'Debit'}
                                                     </span>
                                                 </TableCell>
-                                                <TableCell className="align-top py-3">{entry.date}</TableCell>
+                                                <TableCell className="align-top py-3">
+                                                    {new Date(entry.date).toLocaleString()}
+                                                </TableCell>
                                                 <TableCell className={`text-right font-medium align-top py-3 ${entry.type === 'Credit' ? 'text-green-600' : ''}`}>
                                                     {entry.type === 'Credit' ? '+' : '-'}₹{entry.amount.toLocaleString()}
                                                 </TableCell>

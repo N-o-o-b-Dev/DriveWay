@@ -2,12 +2,12 @@ import { useState } from 'react'
 import { Sheet, SheetHeader, SheetTitle } from './ui/Sheet'
 import { Card, CardContent } from './ui/Card'
 import { Button } from './ui/Button'
-import { MapPin, Phone, Wrench, Edit } from 'lucide-react'
+import { MapPin, Phone, Wrench, Edit, Trash2 } from 'lucide-react'
 import { useDriveway } from '../context/DrivewayContext'
 import { EditMaintenanceDrawer } from './EditMaintenanceDrawer'
 
 export function WorkshopDetailsDrawer({ isOpen, onClose, workshop }) {
-    const { cars } = useDriveway()
+    const { cars, deleteMaintenanceRecord } = useDriveway()
     const [editingRecord, setEditingRecord] = useState(null)
     const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false)
 
@@ -16,6 +16,12 @@ export function WorkshopDetailsDrawer({ isOpen, onClose, workshop }) {
     const handleEdit = (record) => {
         setEditingRecord(record)
         setIsEditDrawerOpen(true)
+    }
+
+    const handleDelete = (id) => {
+        if (window.confirm('Are you sure you want to delete this maintenance record?')) {
+            deleteMaintenanceRecord(id)
+        }
     }
 
     return (
@@ -53,7 +59,12 @@ export function WorkshopDetailsDrawer({ isOpen, onClose, workshop }) {
                                     <CardContent className="p-4">
                                         <div className="flex justify-between items-start">
                                             <div>
-                                                <p className="font-medium">{car ? `${car.make} ${car.model} ` : 'Unknown Car'}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="font-medium">{car ? `${car.make} ${car.model} ` : 'Unknown Car'}</p>
+                                                    <span className={`text-xs px-2 py-0.5 rounded-full ${record.paymentStatus === 'Pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+                                                        {record.paymentStatus || 'Paid'}
+                                                    </span>
+                                                </div>
                                                 <p className="text-sm text-muted-foreground mt-1">{record.description}</p>
                                                 <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
                                                     <span>{record.date}</span>
@@ -66,7 +77,12 @@ export function WorkshopDetailsDrawer({ isOpen, onClose, workshop }) {
                                                 </div>
                                             </div>
                                             <div className="text-right flex flex-col items-end gap-2">
-                                                <p className="font-bold">₹{record.amount}</p>
+                                                <div>
+                                                    <p className="font-bold">₹{record.amount}</p>
+                                                    {record.amountPaid !== undefined && record.amountPaid < record.amount && (
+                                                        <p className="text-xs text-muted-foreground">Paid: ₹{record.amountPaid}</p>
+                                                    )}
+                                                </div>
                                                 <div className="flex gap-2">
                                                     <Button
                                                         variant="ghost"
@@ -75,6 +91,14 @@ export function WorkshopDetailsDrawer({ isOpen, onClose, workshop }) {
                                                         onClick={() => handleEdit(record)}
                                                     >
                                                         <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                                                        onClick={() => handleDelete(record.id)}
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
                                                     </Button>
                                                     {record.image && (
                                                         <Button

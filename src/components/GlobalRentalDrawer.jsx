@@ -5,7 +5,7 @@ import { Input } from './ui/Input'
 import { Sheet, SheetHeader, SheetTitle } from './ui/Sheet'
 
 export function GlobalRentalDrawer({ isOpen, onClose }) {
-    const { cars, customers, dealers, addTransaction, transactions } = useDriveway()
+    const { cars, customers, dealers, addTransaction, updateCar, transactions } = useDriveway()
 
     const [rentalData, setRentalData] = useState({
         carId: '',
@@ -15,7 +15,8 @@ export function GlobalRentalDrawer({ isOpen, onClose }) {
         endDate: '',
         notes: '',
         paymentStatus: 'Pending',
-        dailyRate: ''
+        dailyRate: '',
+        mileage: ''
     })
     const [priceDetails, setPriceDetails] = useState({
         total: 0,
@@ -25,8 +26,17 @@ export function GlobalRentalDrawer({ isOpen, onClose }) {
     const selectedCar = cars.find(c => c.id === rentalData.carId)
 
     useEffect(() => {
-        if (selectedCar && !rentalData.dailyRate) {
-            setRentalData(prev => ({ ...prev, dailyRate: selectedCar.price }))
+        if (selectedCar) {
+            setRentalData(prev => {
+                if (!prev.dailyRate && !prev.mileage && prev.mileage !== 0) {
+                    return {
+                        ...prev,
+                        dailyRate: selectedCar.price,
+                        mileage: selectedCar.mileage || ''
+                    }
+                }
+                return prev
+            })
         }
     }, [selectedCar])
 
@@ -97,6 +107,13 @@ export function GlobalRentalDrawer({ isOpen, onClose }) {
             return
         }
 
+        // Update Car Mileage if provided
+        console.log('GlobalRentalDrawer Mileage check:', rentalData.mileage)
+        if (rentalData.mileage !== '' && rentalData.mileage !== null && rentalData.mileage !== undefined) {
+            console.log('GlobalRentalDrawer Updating mileage to:', rentalData.mileage)
+            updateCar(selectedCar.id, { mileage: parseInt(rentalData.mileage) })
+        }
+
         addTransaction({
             carId: selectedCar.id,
             customerId: rentalData.customerId,
@@ -108,10 +125,11 @@ export function GlobalRentalDrawer({ isOpen, onClose }) {
             paymentStatus: rentalData.paymentStatus,
             notes: rentalData.notes,
             breakdown: priceDetails.breakdown,
-            dailyRate: rentalData.dailyRate
+            dailyRate: rentalData.dailyRate,
+            startMileage: rentalData.mileage
         })
         onClose()
-        setRentalData({ carId: '', customerId: '', dealerId: '', startDate: '', endDate: '', notes: '', paymentStatus: 'Pending', dailyRate: '' })
+        setRentalData({ carId: '', customerId: '', dealerId: '', startDate: '', endDate: '', notes: '', paymentStatus: 'Pending', dailyRate: '', mileage: '' })
     }
 
     return (
@@ -126,7 +144,12 @@ export function GlobalRentalDrawer({ isOpen, onClose }) {
                         <select
                             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-surface-dark dark:text-text-dark dark:border-surface"
                             value={rentalData.carId}
-                            onChange={e => setRentalData({ ...rentalData, carId: e.target.value })}
+                            onChange={e => setRentalData({
+                                ...rentalData,
+                                carId: e.target.value,
+                                dailyRate: '',
+                                mileage: ''
+                            })}
                             required
                         >
                             <option value="">Select Car</option>
@@ -173,18 +196,18 @@ export function GlobalRentalDrawer({ isOpen, onClose }) {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Start Date</label>
+                            <label className="text-sm font-medium">Start Date & Time</label>
                             <Input
-                                type="date"
+                                type="datetime-local"
                                 value={rentalData.startDate}
                                 onChange={e => setRentalData({ ...rentalData, startDate: e.target.value })}
                                 required
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">End Date</label>
+                            <label className="text-sm font-medium">End Date & Time</label>
                             <Input
-                                type="date"
+                                type="datetime-local"
                                 value={rentalData.endDate}
                                 onChange={e => setRentalData({ ...rentalData, endDate: e.target.value })}
                                 required
@@ -192,14 +215,25 @@ export function GlobalRentalDrawer({ isOpen, onClose }) {
                         </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">Per Day Amount</label>
-                        <Input
-                            type="number"
-                            value={rentalData.dailyRate}
-                            onChange={e => setRentalData({ ...rentalData, dailyRate: e.target.value })}
-                            placeholder="Enter daily rate"
-                        />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Per Day Amount</label>
+                            <Input
+                                type="number"
+                                value={rentalData.dailyRate}
+                                onChange={e => setRentalData({ ...rentalData, dailyRate: e.target.value })}
+                                placeholder="Enter daily rate"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Current Mileage</label>
+                            <Input
+                                type="number"
+                                value={rentalData.mileage}
+                                onChange={e => setRentalData({ ...rentalData, mileage: e.target.value })}
+                                placeholder="Starting mileage"
+                            />
+                        </div>
                     </div>
 
                     <div className="space-y-2">

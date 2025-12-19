@@ -73,6 +73,7 @@ export function DrivewayProvider({ children }) {
     }
 
     const updateCar = (id, updatedCar) => {
+        console.log('updateCar called:', id, updatedCar)
         update(ref(database, `cars/${id}`), updatedCar)
     }
 
@@ -117,6 +118,30 @@ export function DrivewayProvider({ children }) {
         if (updatedRecord.returnDate) {
             update(ref(database, `cars/${updatedRecord.carId}`), { status: 'Available' })
         }
+    }
+
+    const deleteMaintenanceRecord = (id) => {
+        remove(ref(database, `maintenanceRecords/${id}`))
+    }
+
+    const deleteWorkshop = (workshopName) => {
+        // Find all records with this workshop name
+        const recordsToDelete = maintenanceRecords.filter(r => r.workshopName === workshopName)
+        recordsToDelete.forEach(r => {
+            remove(ref(database, `maintenanceRecords/${r.id}`))
+        })
+    }
+
+    const renameWorkshop = (oldName, newName, newDetails, newPhone) => {
+        const recordsToUpdate = maintenanceRecords.filter(r => r.workshopName === oldName)
+        recordsToUpdate.forEach(r => {
+            update(ref(database, `maintenanceRecords/${r.id}`), {
+                ...r,
+                workshopName: newName,
+                workshopDetails: newDetails || r.workshopDetails,
+                phoneNumber: newPhone || r.phoneNumber
+            })
+        })
     }
 
     // Computed Cars with Dynamic Status
@@ -179,7 +204,10 @@ export function DrivewayProvider({ children }) {
             deleteTransaction,
             maintenanceRecords,
             addMaintenanceRecord,
-            updateMaintenanceRecord
+            updateMaintenanceRecord,
+            deleteMaintenanceRecord,
+            deleteWorkshop,
+            renameWorkshop
         }}>
             {children}
         </DrivewayContext.Provider>

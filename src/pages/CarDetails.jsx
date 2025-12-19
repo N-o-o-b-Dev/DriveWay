@@ -17,7 +17,7 @@ import { generateId } from '../lib/utils'
 export function CarDetails() {
     const { id } = useParams()
     const navigate = useNavigate()
-    const { cars, transactions, customers, addTransaction, maintenanceRecords, deleteCar, deleteTransaction } = useDriveway()
+    const { cars, transactions, customers, addTransaction, updateCar, maintenanceRecords, deleteCar, deleteTransaction } = useDriveway()
     const [activeTab, setActiveTab] = useState("overview")
     const [isRentalOpen, setIsRentalOpen] = useState(false)
     const [isEditOpen, setIsEditOpen] = useState(false)
@@ -45,7 +45,8 @@ export function CarDetails() {
         endDate: '',
         notes: '',
         paymentStatus: 'Pending',
-        dailyRate: ''
+        dailyRate: '',
+        mileage: ''
     })
     const [priceDetails, setPriceDetails] = useState({
         total: 0,
@@ -56,8 +57,17 @@ export function CarDetails() {
     const carTransactions = transactions.filter(t => t.carId === id)
 
     useEffect(() => {
-        if (car && !rentalData.dailyRate) {
-            setRentalData(prev => ({ ...prev, dailyRate: car.price }))
+        if (car) {
+            setRentalData(prev => {
+                if (!prev.dailyRate && !prev.mileage && prev.mileage !== 0) {
+                    return {
+                        ...prev,
+                        dailyRate: car.price,
+                        mileage: car.mileage || ''
+                    }
+                }
+                return prev
+            })
         }
     }, [car])
 
@@ -135,6 +145,13 @@ export function CarDetails() {
             return
         }
 
+        // Update Car Mileage if provided
+        console.log('Mileage check:', rentalData.mileage)
+        if (rentalData.mileage !== '' && rentalData.mileage !== null && rentalData.mileage !== undefined) {
+            console.log('Updating mileage to:', rentalData.mileage)
+            updateCar(car.id, { mileage: parseInt(rentalData.mileage) })
+        }
+
 
         const payments = []
         if (rentalData.paymentStatus === 'Paid') {
@@ -160,10 +177,11 @@ export function CarDetails() {
             breakdown: priceDetails.breakdown,
             dailyRate: rentalData.dailyRate,
             payments: payments,
-            amountPaid: rentalData.paymentStatus === 'Paid' ? priceDetails.total : 0
+            amountPaid: rentalData.paymentStatus === 'Paid' ? priceDetails.total : 0,
+            startMileage: rentalData.mileage
         })
         setIsRentalOpen(false)
-        setRentalData({ customerId: '', startDate: '', endDate: '', notes: '', paymentStatus: 'Pending', dailyRate: '' })
+        setRentalData({ customerId: '', startDate: '', endDate: '', notes: '', paymentStatus: 'Pending', dailyRate: '', mileage: '' })
         setActiveTab("rentals")
     }
 
@@ -215,7 +233,7 @@ export function CarDetails() {
                     <div className="flex gap-4 mt-2 text-sm text-muted-foreground">
                         {car.color && <span>Color: {car.color}</span>}
                         {car.fuelType && <span>Fuel: {car.fuelType}</span>}
-                        {car.mileage && <span>Mileage: {car.mileage}</span>}
+                        <span>Mileage: {car.mileage} km</span>
                     </div>
                 </div>
                 <div className="flex gap-2">
@@ -302,6 +320,30 @@ export function CarDetails() {
                                     {car.status}
                                 </span>
                             </div>
+
+                            <Card>
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-base">Vehicle Specifications</CardTitle>
+                                </CardHeader>
+                                <CardContent className="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <span className="text-muted-foreground block">Mileage</span>
+                                        <span className="font-medium text-lg">{car.mileage} km</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-muted-foreground block">Fuel Type</span>
+                                        <span className="font-medium">{car.fuelType || 'N/A'}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-muted-foreground block">Color</span>
+                                        <span className="font-medium">{car.color || 'N/A'}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-muted-foreground block">Year</span>
+                                        <span className="font-medium">{car.year}</span>
+                                    </div>
+                                </CardContent>
+                            </Card>
 
                             {car.description && (
                                 <div>
@@ -459,6 +501,12 @@ export function CarDetails() {
                                                     <p className="text-sm text-muted-foreground">{record.description}</p>
                                                     <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
                                                         <span>{record.date}</span>
+                                                        {record.returnDate && (
+                                                            <>
+                                                                <span> - </span>
+                                                                <span>{record.returnDate}</span>
+                                                            </>
+                                                        )}
                                                         <span>•</span>
                                                         <span>{record.workshopDetails}</span>
                                                     </div>
@@ -557,14 +605,25 @@ export function CarDetails() {
                             </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Per Day Amount</label>
-                            <Input
-                                type="number"
-                                value={rentalData.dailyRate}
-                                onChange={e => setRentalData({ ...rentalData, dailyRate: e.target.value })}
-                                placeholder="Enter daily rate"
-                            />
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Per Day Amount</label>
+                                <Input
+                                    type="number"
+                                    value={rentalData.dailyRate}
+                                    onChange={e => setRentalData({ ...rentalData, dailyRate: e.target.value })}
+                                    placeholder="Enter daily rate"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Current Mileage</label>
+                                <Input
+                                    type="number"
+                                    value={rentalData.mileage}
+                                    onChange={e => setRentalData({ ...rentalData, mileage: e.target.value })}
+                                    placeholder="Starting mileage"
+                                />
+                            </div>
                         </div>
 
                         <div className="space-y-2">

@@ -7,13 +7,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { ArrowUpRight, ArrowDownLeft, Search, Filter } from 'lucide-react'
 
 export function Financials() {
-    const { transactions, cars, customers, dealers } = useDriveway()
+    const { transactions, cars, customers, dealers, maintenanceRecords } = useDriveway()
     const [searchTerm, setSearchTerm] = useState('')
     const [filterType, setFilterType] = useState('All') // All, Credit, Debit
 
-    // Flatten all payments into a single list with context
+    // Flatten all payments and maintenance into a single list with context
     const allPayments = useMemo(() => {
         const flattened = []
+
+        // 1. Process Transaction Payments
         transactions.forEach(t => {
             const car = cars.find(c => c.id === t.carId)
             const customer = customers.find(c => c.id === t.customerId)
@@ -27,14 +29,48 @@ export function Financials() {
                         carModel: car ? `${car.make} ${car.model}` : 'Unknown Car',
                         customerName: customer ? customer.name : 'Unknown Customer',
                         dealerName: dealer ? dealer.name : null, // Optional
-                        rentalDate: `${t.startDate} - ${t.endDate}`
+                        rentalDate: `${t.startDate} - ${t.endDate}`,
+                        category: 'Rental'
                     })
                 })
             }
         })
+
+        // 2. Process Maintenance Records (Expenses)
+        if (maintenanceRecords) {
+            maintenanceRecords.forEach(record => {
+                // Determine expense amount (Amount Paid)
+                let expenseAmount = 0
+                if (record.amountPaid !== undefined && record.amountPaid !== null && record.amountPaid !== '') {
+                    expenseAmount = parseFloat(record.amountPaid)
+                } else {
+                    // Legacy/Fallback: If marked Paid but no amountPaid, assume full amount.
+                    if (record.paymentStatus === 'Paid' || !record.paymentStatus) {
+                        expenseAmount = parseFloat(record.amount)
+                    }
+                }
+
+                if (expenseAmount > 0) {
+                    const car = cars.find(c => c.id === record.carId)
+                    flattened.push({
+                        id: record.id,
+                        date: record.date,
+                        amount: expenseAmount,
+                        type: 'Debit',
+                        medium: 'Cash', // Default assumption for maintenance
+                        carModel: car ? `${car.make} ${car.model}` : 'Unknown Car',
+                        customerName: record.workshopName || 'Workshop', // Use Workshop as "Customer" entity
+                        dealerName: null,
+                        notes: `Maintenance: ${record.description || 'No description'} (${record.workshopDetails || ''})`,
+                        category: 'Maintenance'
+                    })
+                }
+            })
+        }
+
         // Sort by date descending
         return flattened.sort((a, b) => new Date(b.date) - new Date(a.date))
-    }, [transactions, cars, customers, dealers])
+    }, [transactions, cars, customers, dealers, maintenanceRecords])
 
     // Filter Logic
     const filteredPayments = allPayments.filter(p => {

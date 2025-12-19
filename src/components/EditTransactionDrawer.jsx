@@ -4,8 +4,11 @@ import { Button } from './ui/Button'
 import { Input } from './ui/Input'
 import { Sheet, SheetHeader, SheetTitle } from './ui/Sheet'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/Table'
-import { Plus, Trash } from 'lucide-react'
+import { Plus, Trash, FileText } from 'lucide-react'
 import { generateId } from '../lib/utils'
+// import { generateInvoice } from '../lib/invoiceGenerator' // Use new ReactPDF one
+import { pdf } from '@react-pdf/renderer'
+import InvoiceDocument from './InvoiceDocument'
 
 export function EditTransactionDrawer({ isOpen, onClose, transaction }) {
     const { updateTransaction, cars, customers } = useDriveway()
@@ -15,16 +18,26 @@ export function EditTransactionDrawer({ isOpen, onClose, transaction }) {
         status: '',
         paymentStatus: '',
         notes: '',
+        startMileage: '',
         payments: []
     })
 
     const [newPayment, setNewPayment] = useState({
         amount: '',
-        date: new Date().toISOString().split('T')[0],
+        date: new Date().toISOString().slice(0, 16),
         type: 'Credit',
         medium: 'Cash',
         notes: ''
     })
+
+    // ... (rest of component code) ... 
+
+
+
+    const car = transaction ? cars.find(c => c.id === transaction.carId) : null
+    const customer = transaction ? customers.find(c => c.id === transaction.customerId) : null
+
+
 
     useEffect(() => {
         if (transaction) {
@@ -47,6 +60,7 @@ export function EditTransactionDrawer({ isOpen, onClose, transaction }) {
                 status: transaction.status,
                 paymentStatus: transaction.paymentStatus || 'Pending',
                 notes: transaction.notes || '',
+                startMileage: transaction.startMileage || '',
                 payments: initialPayments
             })
         }
@@ -107,15 +121,57 @@ export function EditTransactionDrawer({ isOpen, onClose, transaction }) {
         onClose()
     }
 
-    if (!transaction) return null
 
-    const car = cars.find(c => c.id === transaction.carId)
-    const customer = customers.find(c => c.id === transaction.customerId)
+
+
+    if (!transaction) return null
 
     return (
         <Sheet isOpen={isOpen} onClose={onClose}>
-            <SheetHeader>
+            <SheetHeader className="flex flex-row items-center justify-between">
                 <SheetTitle>Edit Transaction</SheetTitle>
+                <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                        const start = new Date(transaction.startDate)
+                        const end = new Date(transaction.endDate)
+                        const diffTime = Math.abs(end - start)
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1
+
+                        // Structure data for PDF
+                        const invoiceData = {
+                            invoiceId: transaction.id.slice(0, 8).toUpperCase(),
+                            date: new Date().toISOString(),
+                            customerName: customer?.name || "Guest",
+                            phone: customer?.phone || "",
+                            address: customer?.address || "",
+                            vehicles: [{
+                                vehicleModel: `${car?.make} ${car?.model}`,
+                                vehicleNo: car?.plateNumber || "",
+                                startDate: transaction.startDate,
+                                endDate: transaction.endDate,
+                                rentDays: diffDays,
+                                ratePerDay: Number(car?.price || 0)
+                            }],
+                            extraCharges: [], // TODO: Map any extras from payments if implied
+                        }
+
+                        // Generate Blob and Download
+                        const blob = await pdf(<InvoiceDocument data={invoiceData} />).toBlob()
+                        const url = URL.createObjectURL(blob)
+                        const link = document.createElement('a')
+                        link.href = url
+                        link.download = `Invoice_${invoiceData.invoiceId}.pdf`
+                        document.body.appendChild(link)
+                        link.click()
+                        document.body.removeChild(link)
+                    }}
+                    className="flex items-center gap-2"
+                >
+                    <FileText className="h-4 w-4" />
+                    Invoice (PDF)
+                </Button>
             </SheetHeader>
             <div className="mt-6 flex flex-col h-[calc(100vh-100px)] overflow-y-auto">
                 <div className="mb-6 space-y-2">
@@ -129,7 +185,7 @@ export function EditTransactionDrawer({ isOpen, onClose, transaction }) {
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Start Date</label>
                             <Input
-                                type="date"
+                                type="datetime-local"
                                 value={formData.startDate}
                                 onChange={e => setFormData({ ...formData, startDate: e.target.value })}
                                 required
@@ -138,12 +194,22 @@ export function EditTransactionDrawer({ isOpen, onClose, transaction }) {
                         <div className="space-y-2">
                             <label className="text-sm font-medium">End Date</label>
                             <Input
-                                type="date"
+                                type="datetime-local"
                                 value={formData.endDate}
                                 onChange={e => setFormData({ ...formData, endDate: e.target.value })}
                                 required
                             />
                         </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Start Mileage</label>
+                        <Input
+                            type="number"
+                            value={formData.startMileage}
+                            onChange={e => setFormData({ ...formData, startMileage: e.target.value })}
+                            placeholder="Starting mileage"
+                        />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -182,7 +248,7 @@ export function EditTransactionDrawer({ isOpen, onClose, transaction }) {
                 </form>
 
                 <div className="mt-8 space-y-4">
-                    <h3 className="font-semibold text-lg border-b pb-2">Financial History</h3>
+                    <h3 className="font-semibold text-lg border-b pb-2">Billing Section</h3>
 
                     {/* Add New Payment */}
                     <div className="p-4 rounded-lg bg-muted/30 border space-y-4">
@@ -197,7 +263,7 @@ export function EditTransactionDrawer({ isOpen, onClose, transaction }) {
                                 <option value="Debit">Debit (Out)</option>
                             </select>
                             <Input
-                                type="date"
+                                type="datetime-local"
                                 className="h-9"
                                 value={newPayment.date}
                                 onChange={e => setNewPayment({ ...newPayment, date: e.target.value })}
@@ -223,7 +289,7 @@ export function EditTransactionDrawer({ isOpen, onClose, transaction }) {
                             </select>
                         </div>
                         <Input
-                            placeholder="Transaction ID / Notes"
+                            placeholder="Description / Notes"
                             className="h-9"
                             value={newPayment.notes}
                             onChange={e => setNewPayment({ ...newPayment, notes: e.target.value })}
@@ -238,22 +304,26 @@ export function EditTransactionDrawer({ isOpen, onClose, transaction }) {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Date</TableHead>
-                                    <TableHead>Type</TableHead>
+                                    <TableHead className="w-[80px]">Sl No</TableHead>
+                                    <TableHead>Description</TableHead>
+                                    <TableHead>Credit/Debit</TableHead>
                                     <TableHead>Amount</TableHead>
                                     <TableHead></TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {formData.payments.map((p) => (
+                                {formData.payments.map((p, index) => (
                                     <TableRow key={p.id}>
-                                        <TableCell className="text-xs">{p.date}</TableCell>
+                                        <TableCell className="text-xs">{index + 1}</TableCell>
+                                        <TableCell>
+                                            <div className="text-sm font-medium">{p.notes || "Payment"}</div>
+                                            <div className="text-[10px] text-muted-foreground">{p.date.split('T')[0]} • {p.medium}</div>
+                                        </TableCell>
                                         <TableCell>
                                             <span className={`text-xs px-2 py-0.5 rounded-full ${p.type === 'Credit' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                                                 }`}>
                                                 {p.type}
                                             </span>
-                                            <div className="text-[10px] text-muted-foreground mt-0.5">{p.medium}</div>
                                         </TableCell>
                                         <TableCell className="font-medium">₹{p.amount}</TableCell>
                                         <TableCell>

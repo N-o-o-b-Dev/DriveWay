@@ -12,8 +12,11 @@ export function EditMaintenanceDrawer({ isOpen, onClose, record }) {
         workshopDetails: '',
         phoneNumber: '',
         amount: '',
+        amountPaid: '',
+        date: '',
         date: '',
         returnDate: '',
+        paymentStatus: 'Paid',
         description: '',
         image: null
     })
@@ -25,8 +28,10 @@ export function EditMaintenanceDrawer({ isOpen, onClose, record }) {
                 workshopDetails: record.workshopDetails || '',
                 phoneNumber: record.phoneNumber || '',
                 amount: record.amount || '',
+                amountPaid: record.amountPaid || '',
                 date: record.date || '',
                 returnDate: record.returnDate || '',
+                paymentStatus: record.paymentStatus || 'Paid',
                 description: record.description || '',
                 image: record.image || null
             })
@@ -51,7 +56,8 @@ export function EditMaintenanceDrawer({ isOpen, onClose, record }) {
         updateMaintenanceRecord(record.id, {
             ...record,
             ...formData,
-            amount: formData.amount ? parseFloat(formData.amount) : 0
+            amount: formData.amount ? parseFloat(formData.amount) : 0,
+            amountPaid: formData.amountPaid ? parseFloat(formData.amountPaid) : 0
         })
         onClose()
     }
@@ -91,13 +97,33 @@ export function EditMaintenanceDrawer({ isOpen, onClose, record }) {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Amount</label>
+                            <label className="text-sm font-medium">Total Amount</label>
                             <Input
                                 type="number"
                                 value={formData.amount}
                                 onChange={e => setFormData({ ...formData, amount: e.target.value })}
-                                placeholder="Optional"
+                                placeholder="Total Bill"
                             />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Amount Paid</label>
+                            <Input
+                                type="number"
+                                value={formData.amountPaid}
+                                onChange={e => setFormData({ ...formData, amountPaid: e.target.value })}
+                                placeholder="Paid so far"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Payment Status</label>
+                            <select
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-surface-dark dark:text-text-dark dark:border-surface"
+                                value={formData.paymentStatus}
+                                onChange={e => setFormData({ ...formData, paymentStatus: e.target.value })}
+                            >
+                                <option value="Paid">Paid</option>
+                                <option value="Pending">Pending</option>
+                            </select>
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Date</label>

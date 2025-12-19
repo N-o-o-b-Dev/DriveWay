@@ -1,21 +1,23 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDriveway } from '../context/DrivewayContext'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
+import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
-import { Plus, Edit, Users, ChevronDown, ChevronUp, User, Trash2 } from 'lucide-react'
+import { Plus, Edit, Users, ChevronRight, User, Trash2, ArrowUpRight } from 'lucide-react'
 import { EditDealerDrawer } from '../components/EditDealerDrawer'
 import { PendingTransactionsDrawer } from '../components/PendingTransactionsDrawer'
+import { Dialog, DialogHeader, DialogTitle } from '../components/ui/Dialog'
 
-function DealerCard({ dealer, transactions = [], onEdit, onViewDetails, onDelete, onPendingClick }) {
-    const [isExpanded, setIsExpanded] = useState(false)
-
+function DealerCard({ dealer, onQuickView }) {
     return (
-        <Card className="relative overflow-hidden transition-all duration-300 hover:shadow-lg border-l-4 border-l-secondary/20 hover:border-l-secondary">
+        <Card
+            className="relative overflow-hidden transition-all duration-300 hover:shadow-lg border-l-4 border-l-secondary/20 hover:border-l-secondary cursor-pointer"
+            onClick={onQuickView}
+        >
             <CardContent className="p-6">
-                <div className="flex justify-between items-start">
-                    <div className="flex gap-4">
+                <div className="flex justify-between items-center">
+                    <div className="flex gap-4 items-center">
                         <div className="h-12 w-12 rounded-full bg-secondary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
                             {dealer.image ? (
                                 <img src={dealer.image} alt={dealer.name} className="h-full w-full object-cover" />
@@ -24,109 +26,14 @@ function DealerCard({ dealer, transactions = [], onEdit, onViewDetails, onDelete
                             )}
                         </div>
                         <div>
-                            <h3 className="font-bold text-lg leading-none mb-2">{dealer.name}</h3>
-                            <p className="text-sm text-muted-foreground mb-1">{dealer.email}</p>
+                            <h3 className="font-bold text-lg leading-none mb-1">{dealer.name}</h3>
                             <p className="text-sm text-muted-foreground">{dealer.phone}</p>
                         </div>
                     </div>
-
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-muted-foreground hover:text-foreground"
-                        onClick={() => setIsExpanded(!isExpanded)}
-                    >
-                        {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                    <Button variant="ghost" size="icon" className="text-muted-foreground">
+                        <ChevronRight className="h-5 w-5" />
                     </Button>
                 </div>
-
-                {isExpanded && (
-                    <div className="mt-6 pt-6 border-t animate-in slide-in-from-top-2 duration-200">
-                        {/* Financial Overview */}
-                        {(() => {
-                            const dealerTransactions = transactions.filter(t => t.dealerId === dealer.id)
-                            const pendingAmount = dealerTransactions
-                                .filter(t => t.paymentStatus !== 'Paid')
-                                .reduce((sum, t) => sum + Math.max(0, (Number(t.total) || 0) - (Number(t.amountPaid) || 0)), 0)
-                            const recentTransactions = [...dealerTransactions]
-                                .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
-                                .slice(0, 2)
-
-                            return (
-                                <div className="mb-6 space-y-4">
-                                    <div
-                                        className="flex justify-between items-center p-3 bg-muted/50 rounded-lg cursor-pointer hover:bg-muted transition-colors"
-                                        onClick={onPendingClick}
-                                    >
-                                        <span className="text-sm font-medium">Pending Collection</span>
-                                        <span className={`font-bold ${pendingAmount > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
-                                            ₹{pendingAmount.toLocaleString()}
-                                        </span>
-                                    </div>
-
-                                    {recentTransactions.length > 0 && (
-                                        <div>
-                                            <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">Recent Activity</h4>
-                                            <div className="space-y-2">
-                                                {recentTransactions.map(t => (
-                                                    <div key={t.id} className="text-sm flex justify-between items-center border-b pb-2 last:border-0 last:pb-0">
-                                                        <div>
-                                                            <div className="font-medium">{t.startDate}</div>
-                                                            <div className="text-xs text-muted-foreground">₹{t.total}</div>
-                                                        </div>
-                                                        <span className={`text-xs px-2 py-0.5 rounded-full ${t.paymentStatus === 'Paid' ? 'bg-green-100 text-green-800' :
-                                                            t.paymentStatus === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                                'bg-red-100 text-red-800'
-                                                            }`}>
-                                                            {t.paymentStatus || 'Pending'}
-                                                        </span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )
-                        })()}
-
-                        {dealer.address && (
-                            <div className="mb-4">
-                                <h4 className="text-sm font-semibold mb-1">Address</h4>
-                                <p className="text-sm text-muted-foreground">{dealer.address}</p>
-                            </div>
-                        )}
-
-                        <div className="flex gap-2 justify-end mt-4">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={onDelete}
-                                className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/20"
-                            >
-                                <Trash2 className="h-4 w-4" />
-                                Delete
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={onViewDetails}
-                                className="gap-2"
-                            >
-                                <Users className="h-4 w-4" />
-                                View Details
-                            </Button>
-                            <Button
-                                variant="default"
-                                size="sm"
-                                onClick={onEdit}
-                                className="gap-2"
-                            >
-                                <Edit className="h-4 w-4" />
-                                Edit Details
-                            </Button>
-                        </div>
-                    </div>
-                )}
             </CardContent>
         </Card>
     )
@@ -144,6 +51,7 @@ export function Dealers() {
     })
     const [editingDealer, setEditingDealer] = useState(null)
     const [pendingDrawerEntity, setPendingDrawerEntity] = useState(null)
+    const [quickViewDealer, setQuickViewDealer] = useState(null)
 
     const handleImageChange = (field, e) => {
         const file = e.target.files[0]
@@ -160,6 +68,7 @@ export function Dealers() {
         if (window.confirm('Are you sure you want to delete this dealer? This action cannot be undone.')) {
             try {
                 await deleteDealer(id)
+                if (quickViewDealer?.id === id) setQuickViewDealer(null)
             } catch (error) {
                 alert('Failed to delete dealer: ' + error.message)
             }
@@ -169,7 +78,7 @@ export function Dealers() {
     const handleSubmit = (e) => {
         e.preventDefault()
         try {
-            addDealer(newDealer) // This will throw if duplicate phone
+            addDealer(newDealer)
             setIsAdding(false)
             setNewDealer({
                 name: '', email: '', phone: '', address: '',
@@ -194,7 +103,8 @@ export function Dealers() {
             {isAdding && (
                 <Card className="max-w-2xl">
                     <CardHeader>
-                        <CardTitle>Add New Dealer</CardTitle>
+                        {/* Corrected: CardTitle imported but not used in header? No, it is used here */}
+                        <div className="text-lg font-semibold">Add New Dealer</div>
                     </CardHeader>
                     <CardContent>
                         <form onSubmit={handleSubmit} className="space-y-4">
@@ -305,19 +215,119 @@ export function Dealers() {
                 </Card>
             )}
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 items-start">
                 {dealers.map((dealer) => (
                     <DealerCard
                         key={dealer.id}
                         dealer={dealer}
-                        transactions={transactions}
-                        onEdit={() => setEditingDealer(dealer)}
-                        onViewDetails={() => navigate('/dealers/' + dealer.id)}
-                        onPendingClick={() => setPendingDrawerEntity(dealer)}
-                        onDelete={() => handleDelete(dealer.id)}
+                        onQuickView={() => setQuickViewDealer(dealer)}
                     />
                 ))}
             </div>
+
+            <Dialog isOpen={!!quickViewDealer} onClose={() => setQuickViewDealer(null)}>
+                {quickViewDealer && (() => {
+                    const dealerTransactions = transactions.filter(t => t.dealerId === quickViewDealer.id)
+                    const pendingAmount = dealerTransactions
+                        .filter(t => t.paymentStatus !== 'Paid')
+                        .reduce((sum, t) => sum + Math.max(0, (Number(t.total) || 0) - (Number(t.amountPaid) || 0)), 0)
+                    const recentTransactions = [...dealerTransactions]
+                        .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
+                        .slice(0, 3)
+
+                    return (
+                        <div className="space-y-6">
+                            <div className="flex items-start justify-between">
+                                <div>
+                                    <DialogTitle className="text-xl mb-1">{quickViewDealer.name}</DialogTitle>
+                                    <p className="text-sm text-muted-foreground">{quickViewDealer.email}</p>
+                                    <p className="text-sm text-muted-foreground">{quickViewDealer.phone}</p>
+                                    {quickViewDealer.address && <p className="text-sm text-muted-foreground mt-1">{quickViewDealer.address}</p>}
+                                </div>
+                                {quickViewDealer.image && (
+                                    <div className="h-16 w-16 rounded-full overflow-hidden border shrink-0 ml-4">
+                                        <img src={quickViewDealer.image} className="w-full h-full object-cover" />
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div
+                                    className="p-4 bg-muted/40 rounded-lg cursor-pointer hover:bg-muted transition-colors border"
+                                    onClick={() => {
+                                        setQuickViewDealer(null)
+                                        setPendingDrawerEntity(quickViewDealer)
+                                    }}
+                                >
+                                    <p className="text-xs font-medium text-muted-foreground">Pending Collection</p>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <p className={`text-xl font-bold ${pendingAmount > 0 ? 'text-destructive' : ''}`}>
+                                            ₹{pendingAmount.toLocaleString()}
+                                        </p>
+                                        <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
+                                    </div>
+                                </div>
+                                <div className="p-4 bg-muted/40 rounded-lg border">
+                                    <p className="text-xs font-medium text-muted-foreground">Lifetime Rentals</p>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <p className="text-xl font-bold">
+                                            {dealerTransactions.length}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 className="text-sm font-semibold mb-3">Recent Activity</h4>
+                                <div className="space-y-3">
+                                    {recentTransactions.length > 0 ? recentTransactions.map(t => (
+                                        <div key={t.id} className="flex justify-between items-center text-sm border-b pb-2 last:border-0 last:pb-0">
+                                            <div>
+                                                <p className="font-medium">{new Date(t.startDate).toLocaleDateString()}</p>
+                                                <p className="text-xs text-muted-foreground">₹{t.total} • {t.paymentStatus || 'Pending'}</p>
+                                            </div>
+                                            <span className={`text-xs px-2 py-1 rounded-full ${t.paymentStatus === 'Paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                {t.paymentStatus || 'Pending'}
+                                            </span>
+                                        </div>
+                                    )) : (
+                                        <p className="text-sm text-muted-foreground italic">No recent activity</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="flex gap-2 pt-2">
+                                <Button
+                                    className="flex-1"
+                                    onClick={() => {
+                                        setQuickViewDealer(null)
+                                        navigate('/dealers/' + quickViewDealer.id)
+                                    }}
+                                >
+                                    <Users className="mr-2 h-4 w-4" /> View Full Profile
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => {
+                                        setQuickViewDealer(null)
+                                        setEditingDealer(quickViewDealer)
+                                    }}
+                                >
+                                    <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="destructive"
+                                    size="icon"
+                                    onClick={() => handleDelete(quickViewDealer.id)}
+                                >
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    )
+                })()}
+            </Dialog>
 
             <EditDealerDrawer
                 isOpen={!!editingDealer}
