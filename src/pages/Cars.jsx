@@ -36,14 +36,23 @@ export function Cars() {
     const [editingCar, setEditingCar] = useState(null)
     const [quickViewCar, setQuickViewCar] = useState(null)
 
-    const handleImageChange = (field, e) => {
+    const handleImageChange = async (field, e) => {
         const file = e.target.files[0]
         if (file) {
-            const reader = new FileReader()
-            reader.onloadend = () => {
-                setNewCar(prev => ({ ...prev, [field]: reader.result }))
+            try {
+                // Dynamically import to avoid top-level dependency issues if any
+                const { compressImage } = await import('../lib/imageCompression')
+                const compressedBase64 = await compressImage(file)
+                setNewCar(prev => ({ ...prev, [field]: compressedBase64 }))
+            } catch (error) {
+                console.error("Image compression failed:", error)
+                // Fallback to normal reading if compression fails
+                const reader = new FileReader()
+                reader.onloadend = () => {
+                    setNewCar(prev => ({ ...prev, [field]: reader.result }))
+                }
+                reader.readAsDataURL(file)
             }
-            reader.readAsDataURL(file)
         }
     }
 

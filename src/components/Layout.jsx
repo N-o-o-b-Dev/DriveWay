@@ -4,6 +4,7 @@ import { Car, Users, Receipt, LayoutDashboard, Moon, Sun, Plus, Wrench, Menu, X,
 import { cn } from '../lib/utils'
 import { Button } from './ui/Button'
 import { GlobalRentalDrawer } from './GlobalRentalDrawer'
+import { useDriveway } from '../context/DrivewayContext'
 import { useAuth } from '../context/AuthContext'
 
 export function Layout({ children }) {
@@ -13,6 +14,7 @@ export function Layout({ children }) {
     const location = useLocation()
     const navigate = useNavigate()
     const { logout } = useAuth()
+    const { isLoading } = useDriveway()
 
     async function handleLogout() {
         try {
@@ -107,6 +109,17 @@ export function Layout({ children }) {
             </div>
         </div>
     )
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-surface dark:bg-background-dark flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Loading..." className="h-16 w-16 animate-pulse object-contain" />
+                    <p className="text-muted-foreground animate-pulse">Loading...</p>
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="min-h-screen bg-surface dark:bg-background-dark flex flex-col md:flex-row">

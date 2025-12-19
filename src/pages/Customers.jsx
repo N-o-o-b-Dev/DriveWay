@@ -53,14 +53,23 @@ export function Customers() {
     const [pendingDrawerEntity, setPendingDrawerEntity] = useState(null)
     const [quickViewCustomer, setQuickViewCustomer] = useState(null)
 
-    const handleImageChange = (field, e) => {
+    const handleImageChange = async (field, e) => {
         const file = e.target.files[0]
         if (file) {
-            const reader = new FileReader()
-            reader.onloadend = () => {
-                setNewCustomer(prev => ({ ...prev, [field]: reader.result }))
+            try {
+                // Dynamically import to avoid top-level dependency issues
+                const { compressImage } = await import('../lib/imageCompression')
+                const compressedBase64 = await compressImage(file)
+                setNewCustomer(prev => ({ ...prev, [field]: compressedBase64 }))
+            } catch (error) {
+                console.error("Image compression failed:", error)
+                // Fallback to normal reading
+                const reader = new FileReader()
+                reader.onloadend = () => {
+                    setNewCustomer(prev => ({ ...prev, [field]: reader.result }))
+                }
+                reader.readAsDataURL(file)
             }
-            reader.readAsDataURL(file)
         }
     }
 

@@ -1,56 +1,71 @@
+import { Suspense, lazy } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { DrivewayProvider } from './context/DrivewayContext'
 import { Layout } from './components/Layout'
-import { Dashboard } from './pages/Dashboard'
-import { Cars } from './pages/Cars'
-import { CarDetails } from './pages/CarDetails'
-import { Customers } from './pages/Customers'
-import { CustomerDetailsPage } from './pages/CustomerDetailsPage'
-import { Transactions } from './pages/Transactions'
 import { InstallPrompt } from './components/InstallPrompt'
-
-import { Dealers } from './pages/Dealers'
-import { DealerDetailsPage } from './pages/DealerDetailsPage'
-import { Maintenance } from './pages/Maintenance'
-import { Financials } from './pages/Financials'
-
 import { AuthProvider } from './context/AuthContext'
-import { Login } from './pages/Login'
-import { Signup } from './pages/Signup'
 import { PrivateRoute } from './components/PrivateRoute'
+
+// Lazy load pages to improve performance
+const Dashboard = lazy(() => import('./pages/Dashboard').then(module => ({ default: module.Dashboard })))
+const Cars = lazy(() => import('./pages/Cars').then(module => ({ default: module.Cars })))
+const CarDetails = lazy(() => import('./pages/CarDetails').then(module => ({ default: module.CarDetails })))
+const Customers = lazy(() => import('./pages/Customers').then(module => ({ default: module.Customers })))
+const CustomerDetailsPage = lazy(() => import('./pages/CustomerDetailsPage').then(module => ({ default: module.CustomerDetailsPage })))
+const Dealers = lazy(() => import('./pages/Dealers').then(module => ({ default: module.Dealers })))
+const DealerDetailsPage = lazy(() => import('./pages/DealerDetailsPage').then(module => ({ default: module.DealerDetailsPage })))
+const Transactions = lazy(() => import('./pages/Transactions').then(module => ({ default: module.Transactions })))
+const Financials = lazy(() => import('./pages/Financials').then(module => ({ default: module.Financials })))
+const Maintenance = lazy(() => import('./pages/Maintenance').then(module => ({ default: module.Maintenance })))
+const Login = lazy(() => import('./pages/Login').then(module => ({ default: module.Login })))
+const Signup = lazy(() => import('./pages/Signup').then(module => ({ default: module.Signup })))
+
+// Simple loading spinner for Suspense fallback
+const PageLoader = () => (
+    <div className="flex items-center justify-center p-8 w-full h-full min-h-[50vh]">
+        <div className="flex flex-col items-center gap-2">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <p className="text-sm text-muted-foreground">Loading page...</p>
+        </div>
+    </div>
+)
 
 function App() {
     return (
-        <DrivewayProvider>
-            <AuthProvider>
+        <AuthProvider>
+            <DrivewayProvider>
                 <Router basename={import.meta.env.BASE_URL}>
-                    <Routes>
-                        <Route path="/login" element={<Login />} />
-                        <Route path="/signup" element={<Signup />} />
+                    <Suspense fallback={<PageLoader />}>
+                        <Routes>
+                            <Route path="/login" element={<Login />} />
+                            <Route path="/signup" element={<Signup />} />
 
-                        <Route path="/*" element={
-                            <PrivateRoute>
-                                <Layout>
-                                    <Routes>
-                                        <Route path="/" element={<Dashboard />} />
-                                        <Route path="/cars" element={<Cars />} />
-                                        <Route path="/cars/:id" element={<CarDetails />} />
-                                        <Route path="/customers" element={<Customers />} />
-                                        <Route path="/customers/:id" element={<CustomerDetailsPage />} />
-                                        <Route path="/dealers" element={<Dealers />} />
-                                        <Route path="/dealers/:id" element={<DealerDetailsPage />} />
-                                        <Route path="/transactions" element={<Transactions />} />
-                                        <Route path="/financials" element={<Financials />} />
-                                        <Route path="/maintenance" element={<Maintenance />} />
-                                    </Routes>
-                                </Layout>
-                            </PrivateRoute>
-                        } />
-                    </Routes>
-                    <InstallPrompt />
+                            <Route path="/*" element={
+                                <PrivateRoute>
+                                    <Layout>
+                                        <Suspense fallback={<PageLoader />}>
+                                            <Routes>
+                                                <Route path="/" element={<Dashboard />} />
+                                                <Route path="/cars" element={<Cars />} />
+                                                <Route path="/cars/:id" element={<CarDetails />} />
+                                                <Route path="/customers" element={<Customers />} />
+                                                <Route path="/customers/:id" element={<CustomerDetailsPage />} />
+                                                <Route path="/dealers" element={<Dealers />} />
+                                                <Route path="/dealers/:id" element={<DealerDetailsPage />} />
+                                                <Route path="/transactions" element={<Transactions />} />
+                                                <Route path="/financials" element={<Financials />} />
+                                                <Route path="/maintenance" element={<Maintenance />} />
+                                            </Routes>
+                                        </Suspense>
+                                    </Layout>
+                                </PrivateRoute>
+                            } />
+                        </Routes>
+                        <InstallPrompt />
+                    </Suspense>
                 </Router>
-            </AuthProvider>
-        </DrivewayProvider>
+            </DrivewayProvider>
+        </AuthProvider>
     )
 }
 

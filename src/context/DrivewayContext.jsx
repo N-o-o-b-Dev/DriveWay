@@ -2,15 +2,18 @@ import { createContext, useContext, useState, useEffect } from 'react'
 import { database } from '../lib/firebase'
 import { ref, onValue, push, update, remove } from 'firebase/database'
 import { generateUniqueId } from '../lib/utils'
+import { useAuth } from './AuthContext'
 
 const DrivewayContext = createContext()
 
 export function DrivewayProvider({ children }) {
+    const { currentUser } = useAuth()
     const [cars, setCars] = useState([])
     const [customers, setCustomers] = useState([])
     const [dealers, setDealers] = useState([])
     const [transactions, setTransactions] = useState([])
     const [maintenanceRecords, setMaintenanceRecords] = useState([])
+    const [isLoading, setIsLoading] = useState(true)
 
     // Helper to convert Firebase object to array
     const snapshotToArray = (snapshot) => {
@@ -21,17 +24,53 @@ export function DrivewayProvider({ children }) {
 
     // Subscribe to Data
     useEffect(() => {
+        if (!currentUser) {
+            setCars([])
+            setCustomers([])
+            setDealers([])
+            setTransactions([])
+            setMaintenanceRecords([])
+            setIsLoading(false)
+            return
+        }
+
+        setIsLoading(true)
+
         const carsRef = ref(database, 'cars')
         const customersRef = ref(database, 'customers')
         const dealersRef = ref(database, 'dealers')
         const transactionsRef = ref(database, 'transactions')
         const maintenanceRef = ref(database, 'maintenanceRecords')
 
-        const unsubCars = onValue(carsRef, (snapshot) => setCars(snapshotToArray(snapshot)))
-        const unsubCustomers = onValue(customersRef, (snapshot) => setCustomers(snapshotToArray(snapshot)))
-        const unsubDealers = onValue(dealersRef, (snapshot) => setDealers(snapshotToArray(snapshot)))
-        const unsubTransactions = onValue(transactionsRef, (snapshot) => setTransactions(snapshotToArray(snapshot)))
-        const unsubMaintenance = onValue(maintenanceRef, (snapshot) => setMaintenanceRecords(snapshotToArray(snapshot)))
+        // We use a counter to track initial loads to turn off the global loading spinner
+        let loadedCount = 0
+        const checkLoaded = () => {
+            loadedCount++
+            if (loadedCount >= 5) {
+                setIsLoading(false)
+            }
+        }
+
+        const unsubCars = onValue(carsRef, (snapshot) => {
+            setCars(snapshotToArray(snapshot))
+            checkLoaded()
+        })
+        const unsubCustomers = onValue(customersRef, (snapshot) => {
+            setCustomers(snapshotToArray(snapshot))
+            checkLoaded()
+        })
+        const unsubDealers = onValue(dealersRef, (snapshot) => {
+            setDealers(snapshotToArray(snapshot))
+            checkLoaded()
+        })
+        const unsubTransactions = onValue(transactionsRef, (snapshot) => {
+            setTransactions(snapshotToArray(snapshot))
+            checkLoaded()
+        })
+        const unsubMaintenance = onValue(maintenanceRef, (snapshot) => {
+            setMaintenanceRecords(snapshotToArray(snapshot))
+            checkLoaded()
+        })
 
         return () => {
             unsubCars()
@@ -40,7 +79,7 @@ export function DrivewayProvider({ children }) {
             unsubTransactions()
             unsubMaintenance()
         }
-    }, [])
+    }, [currentUser])
 
     const addCar = (car) => {
         push(ref(database, 'cars'), car)
@@ -73,7 +112,6 @@ export function DrivewayProvider({ children }) {
     }
 
     const updateCar = (id, updatedCar) => {
-        console.log('updateCar called:', id, updatedCar)
         update(ref(database, `cars/${id}`), updatedCar)
     }
 
@@ -207,7 +245,8 @@ export function DrivewayProvider({ children }) {
             updateMaintenanceRecord,
             deleteMaintenanceRecord,
             deleteWorkshop,
-            renameWorkshop
+            renameWorkshop,
+            isLoading, // Expose loading state
         }}>
             {children}
         </DrivewayContext.Provider>

@@ -212,32 +212,34 @@ export function Dashboard() {
                         <CardDescription>Revenue vs Expenses analysis</CardDescription>
                     </CardHeader>
                     <CardContent className="pl-0">
-                        <ResponsiveContainer width="100%" height={350}>
-                            <BarChart data={financialChartData}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                                <XAxis
-                                    dataKey="name"
-                                    stroke="#888888"
-                                    fontSize={12}
-                                    tickLine={false}
-                                    axisLine={false}
-                                />
-                                <YAxis
-                                    stroke="#888888"
-                                    fontSize={12}
-                                    tickLine={false}
-                                    axisLine={false}
-                                    tickFormatter={(value) => `₹${value}`}
-                                />
-                                <Tooltip
-                                    cursor={{ fill: 'rgba(0,0,0,0.05)' }}
-                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                />
-                                <Legend />
-                                <Bar dataKey="revenue" name="Revenue" fill="#10b981" radius={[4, 4, 0, 0]} />
-                                <Bar dataKey="expense" name="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
+                        <div style={{ width: '100%', height: 350 }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={financialChartData}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                                    <XAxis
+                                        dataKey="name"
+                                        stroke="#888888"
+                                        fontSize={12}
+                                        tickLine={false}
+                                        axisLine={false}
+                                    />
+                                    <YAxis
+                                        stroke="#888888"
+                                        fontSize={12}
+                                        tickLine={false}
+                                        axisLine={false}
+                                        tickFormatter={(value) => `₹${value}`}
+                                    />
+                                    <Tooltip
+                                        cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                    />
+                                    <Legend />
+                                    <Bar dataKey="revenue" name="Revenue" fill="#10b981" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="expense" name="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
                     </CardContent>
                 </Card>
 
