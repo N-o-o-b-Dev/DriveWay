@@ -49,11 +49,10 @@ export function Layout({ children }) {
     const SidebarContent = () => (
         <div className="flex flex-col h-full">
             <div className="p-6 flex justify-between items-center">
-                {isDark ? (
+                <div className="flex items-center gap-3">
+                    <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Driveway" className="h-8 w-8 object-contain" />
                     <h1 className="text-2xl font-bold text-primary">Driveway</h1>
-                ) : (
-                    <h1 className="text-2xl font-bold text-primary">Driveway</h1>
-                )}
+                </div>
                 <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setIsMobileMenuOpen(false)}>
                     <X size={20} />
                 </Button>
@@ -113,11 +112,10 @@ export function Layout({ children }) {
         <div className="min-h-screen bg-surface dark:bg-background-dark flex flex-col md:flex-row">
             {/* Mobile Header */}
             <div className="md:hidden bg-background dark:bg-surface-dark border-b border-gray-200 dark:border-gray-800 p-4 flex justify-between items-center sticky top-0 z-20">
-                {isDark ? (
+                <div className="flex items-center gap-3">
+                    <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Driveway" className="h-8 w-8 object-contain" />
                     <h1 className="text-2xl font-bold text-primary">Driveway</h1>
-                ) : (
-                    <h1 className="text-2xl font-bold text-primary">Driveway</h1>
-                )}
+                </div>
                 <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(true)}>
                     <Menu size={24} />
                 </Button>
