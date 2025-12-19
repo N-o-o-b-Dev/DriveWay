@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Plus, Edit, Car, Calendar, CreditCard, Fuel, ExternalLink } from 'lucide-react'
 import { EditCarDrawer } from '../components/EditCarDrawer'
 import { Dialog, DialogHeader, DialogTitle } from '../components/ui/Dialog'
-import { cn } from '../utils/cn'
+import { cn } from '../lib/utils'
 
 export function Cars() {
     const { cars, addCar } = useDriveway()

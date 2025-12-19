@@ -14,7 +14,6 @@ export function EditMaintenanceDrawer({ isOpen, onClose, record }) {
         amount: '',
         amountPaid: '',
         date: '',
-        date: '',
         returnDate: '',
         paymentStatus: 'Paid',
         description: '',
