@@ -20,6 +20,12 @@ const Maintenance = lazy(() => import('./pages/Maintenance').then(module => ({ d
 const Login = lazy(() => import('./pages/Login').then(module => ({ default: module.Login })))
 const Signup = lazy(() => import('./pages/Signup').then(module => ({ default: module.Signup })))
 
+// Billing App Routes
+const BillingDashboard = lazy(() => import('./pages/billing/BillingDashboard').then(module => ({ default: module.BillingDashboard })))
+const CreateInvoice = lazy(() => import('./pages/billing/CreateInvoice').then(module => ({ default: module.CreateInvoice })))
+const BillingHistory = lazy(() => import('./pages/billing/BillingHistory').then(module => ({ default: module.BillingHistory })))
+const BillingSettings = lazy(() => import('./pages/billing/BillingSettings').then(module => ({ default: module.BillingSettings })))
+
 // Simple loading spinner for Suspense fallback
 const PageLoader = () => (
     <div className="flex items-center justify-center p-8 w-full h-full min-h-[50vh]">
@@ -55,6 +61,12 @@ function App() {
                                                 <Route path="/transactions" element={<Transactions />} />
                                                 <Route path="/financials" element={<Financials />} />
                                                 <Route path="/maintenance" element={<Maintenance />} />
+
+                                                {/* Billing Section */}
+                                                <Route path="/billing" element={<BillingDashboard />} />
+                                                <Route path="/billing/create" element={<CreateInvoice />} />
+                                                <Route path="/billing/history" element={<BillingHistory />} />
+                                                <Route path="/billing/settings" element={<BillingSettings />} />
                                             </Routes>
                                         </Suspense>
                                     </Layout>

@@ -46,6 +46,7 @@ export function Layout({ children }) {
         { icon: FileText, label: 'Rentals', path: '/transactions' },
         { icon: Receipt, label: 'Financials', path: '/financials' },
         { icon: Wrench, label: 'Maintenance', path: '/maintenance' },
+        { icon: FileText, label: 'Billing App', path: '/billing' },
     ]
 
     const SidebarContent = () => (
