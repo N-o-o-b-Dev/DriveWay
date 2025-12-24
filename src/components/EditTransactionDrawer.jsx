@@ -19,7 +19,8 @@ export function EditTransactionDrawer({ isOpen, onClose, transaction }) {
         paymentStatus: '',
         notes: '',
         startMileage: '',
-        payments: []
+        payments: [],
+        total: 0
     })
 
     const [newPayment, setNewPayment] = useState({
@@ -61,7 +62,8 @@ export function EditTransactionDrawer({ isOpen, onClose, transaction }) {
                 paymentStatus: transaction.paymentStatus || 'Pending',
                 notes: transaction.notes || '',
                 startMileage: transaction.startMileage || '',
-                payments: initialPayments
+                payments: initialPayments,
+                total: transaction.total || 0
             })
         }
     }, [transaction])
@@ -70,7 +72,16 @@ export function EditTransactionDrawer({ isOpen, onClose, transaction }) {
         return p.type === 'Credit' ? sum + Number(p.amount) : sum - Number(p.amount)
     }, 0)
 
-    const pendingBalance = Math.max(0, (Number(transaction?.total) || 0) - totalPaid)
+    const pendingBalance = Math.max(0, (Number(formData.total) || 0) - totalPaid)
+
+    const calculateTotal = (start, end) => {
+        if (!start || !end || !car) return 0
+        const startDate = new Date(start)
+        const endDate = new Date(end)
+        const diffTime = Math.abs(endDate - startDate)
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1
+        return diffDays * (Number(car.price) || 0)
+    }
 
     const handleAddPayment = () => {
         if (!newPayment.amount || !newPayment.date) return
@@ -88,7 +99,7 @@ export function EditTransactionDrawer({ isOpen, onClose, transaction }) {
             return p.type === 'Credit' ? sum + Number(p.amount) : sum - Number(p.amount)
         }, 0)
 
-        const newStatus = newTotalPaid >= (Number(transaction.total) || 0) ? 'Paid' : 'Pending'
+        const newStatus = newTotalPaid >= (Number(formData.total) || 0) ? 'Paid' : 'Pending'
 
         setFormData({
             ...formData,
@@ -187,7 +198,10 @@ export function EditTransactionDrawer({ isOpen, onClose, transaction }) {
                             <Input
                                 type="datetime-local"
                                 value={formData.startDate}
-                                onChange={e => setFormData({ ...formData, startDate: e.target.value })}
+                                onChange={e => {
+                                    const newTotal = calculateTotal(e.target.value, formData.endDate)
+                                    setFormData({ ...formData, startDate: e.target.value, total: newTotal })
+                                }}
                                 required
                             />
                         </div>
@@ -196,7 +210,10 @@ export function EditTransactionDrawer({ isOpen, onClose, transaction }) {
                             <Input
                                 type="datetime-local"
                                 value={formData.endDate}
-                                onChange={e => setFormData({ ...formData, endDate: e.target.value })}
+                                onChange={e => {
+                                    const newTotal = calculateTotal(formData.startDate, e.target.value)
+                                    setFormData({ ...formData, endDate: e.target.value, total: newTotal })
+                                }}
                                 required
                             />
                         </div>
@@ -352,7 +369,7 @@ export function EditTransactionDrawer({ isOpen, onClose, transaction }) {
                     <div className="p-4 rounded-lg bg-muted/50 space-y-2 border">
                         <div className="flex justify-between items-center text-sm">
                             <span className="text-muted-foreground">Total Rental Cost</span>
-                            <span className="font-bold">₹{transaction.total}</span>
+                            <span className="font-bold">₹{formData.total}</span>
                         </div>
                         <div className="flex justify-between items-center text-sm">
                             <span className="text-muted-foreground">Total Paid (Credits - Debits)</span>

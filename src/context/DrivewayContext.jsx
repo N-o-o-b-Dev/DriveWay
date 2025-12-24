@@ -185,6 +185,13 @@ export function DrivewayProvider({ children }) {
     // Computed Cars with Dynamic Status
     const derivedCars = cars.map(car => {
         let status = car.status // key fallback
+
+        // If DB says "On Rent" or "Maintenance", we consider it "Available" tentatively,
+        // and let the active records below prove otherwise. This auto-expires old statuses.
+        if (status === 'On Rent' || status === 'On Maintenance' || status === 'Maintenance') {
+            status = 'Available'
+        }
+
         const today = new Date()
         today.setHours(0, 0, 0, 0)
 
@@ -207,12 +214,12 @@ export function DrivewayProvider({ children }) {
 
         // Check Rental (Overrides Maintenance if concurrent, assuming active use)
         const isOnRent = transactions.some(t => {
-            if (t.carId !== car.id || t.status === 'Cancelled') return false
+            if (t.carId !== car.id || t.status === 'Cancelled' || t.status === 'Completed') return false
+            const now = new Date()
             const start = new Date(t.startDate)
             const end = new Date(t.endDate)
-            start.setHours(0, 0, 0, 0)
-            end.setHours(23, 59, 59, 999)
-            return today >= start && today <= end
+            // Strict time comparison
+            return now >= start && now <= end
         })
 
         if (isOnRent) {
@@ -246,7 +253,8 @@ export function DrivewayProvider({ children }) {
             deleteMaintenanceRecord,
             deleteWorkshop,
             renameWorkshop,
-            isLoading, // Expose loading state
+            renameWorkshop,
+            isLoading,
         }}>
             {children}
         </DrivewayContext.Provider>

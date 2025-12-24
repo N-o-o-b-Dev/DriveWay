@@ -4,6 +4,7 @@ import { Car, Users, Receipt, LayoutDashboard, Moon, Sun, Plus, Wrench, Menu, X,
 import { cn } from '../lib/utils'
 import { Button } from './ui/Button'
 import { GlobalRentalDrawer } from './GlobalRentalDrawer'
+import { NotificationCenter } from './NotificationCenter'
 import { useDriveway } from '../context/DrivewayContext'
 import { useAuth } from '../context/AuthContext'
 
@@ -111,6 +112,8 @@ export function Layout({ children }) {
         </div>
     )
 
+
+
     if (isLoading) {
         return (
             <div className="min-h-screen bg-surface dark:bg-background-dark flex items-center justify-center">
@@ -130,9 +133,12 @@ export function Layout({ children }) {
                     <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Driveway" className="h-8 w-8 object-contain" />
                     <h1 className="text-2xl font-bold text-primary">Driveway</h1>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(true)}>
-                    <Menu size={24} />
-                </Button>
+                <div className="flex items-center gap-2">
+                    <NotificationCenter />
+                    <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(true)}>
+                        <Menu size={24} />
+                    </Button>
+                </div>
             </div>
 
             {/* Desktop Sidebar */}
@@ -151,8 +157,11 @@ export function Layout({ children }) {
             )}
 
             {/* Main Content */}
-            <main className="flex-1 overflow-auto w-full">
-                <div className="p-4 md:p-8 max-w-7xl mx-auto">
+            <main className="flex-1 overflow-auto w-full relative">
+                <div className="hidden md:flex justify-end px-8 pt-6">
+                    <NotificationCenter />
+                </div>
+                <div className="p-4 md:p-8 max-w-7xl mx-auto pt-4 md:pt-2">
                     {children}
                 </div>
             </main>
