@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { useDriveway } from '../context/DrivewayContext'
 import { Card, CardContent } from '../components/ui/Card'
-import { Edit } from 'lucide-react'
+import { Edit, Trash } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { EditTransactionDrawer } from '../components/EditTransactionDrawer'
+import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog'
 
 export function Transactions() {
-    const { transactions, cars, customers } = useDriveway()
+    const { transactions, cars, customers, deleteTransaction } = useDriveway()
     const [editingTransaction, setEditingTransaction] = useState(null)
+    const [deleteDialogProps, setDeleteDialogProps] = useState({ isOpen: false, transactionId: null })
 
     return (
         <div className="space-y-8">
@@ -44,6 +46,14 @@ export function Transactions() {
                                     >
                                         <Edit className="h-4 w-4" />
                                     </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                                        onClick={() => setDeleteDialogProps({ isOpen: true, transactionId: transaction.id })}
+                                    >
+                                        <Trash className="h-4 w-4" />
+                                    </Button>
                                 </div>
                             </CardContent>
                         </Card>
@@ -55,6 +65,18 @@ export function Transactions() {
                 isOpen={!!editingTransaction}
                 onClose={() => setEditingTransaction(null)}
                 transaction={editingTransaction}
+            />
+
+            <DeleteConfirmDialog
+                isOpen={deleteDialogProps.isOpen}
+                onClose={() => setDeleteDialogProps({ isOpen: false, transactionId: null })}
+                onConfirm={() => {
+                    if (deleteDialogProps.transactionId) {
+                        deleteTransaction(deleteDialogProps.transactionId)
+                    }
+                }}
+                title="Delete Transaction"
+                description="Are you sure you want to delete this transaction? This action cannot be undone."
             />
         </div>
     )

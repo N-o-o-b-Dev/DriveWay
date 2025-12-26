@@ -179,7 +179,8 @@ const InvoiceDocument = ({ data }) => {
         0
     );
     const extrasTotal = extraCharges.reduce((acc, e) => acc + e.amount, 0);
-    const grandTotal = vehicleTotal + extrasTotal;
+    const discountTotal = data.discount || 0
+    const grandTotal = Math.max(0, vehicleTotal + extrasTotal - discountTotal);
 
     return (
         <Document>
@@ -258,6 +259,12 @@ const InvoiceDocument = ({ data }) => {
                 {/* Grand Total */}
                 <View style={styles.totalContainer}>
                     <View style={styles.totalBox}>
+                        {data.discount > 0 && (
+                            <View style={[styles.totalRow, { marginBottom: 5 }]}>
+                                <Text>Discount</Text>
+                                <Text>- INR {Number(data.discount).toLocaleString()}</Text>
+                            </View>
+                        )}
                         <View style={styles.grandTotal}>
                             <Text>Grand Total</Text>
                             <Text>INR {grandTotal.toLocaleString()}</Text>

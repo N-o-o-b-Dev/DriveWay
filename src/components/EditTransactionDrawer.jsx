@@ -2,16 +2,18 @@ import { useState, useEffect } from 'react'
 import { useDriveway } from '../context/DrivewayContext'
 import { Button } from './ui/Button'
 import { Input } from './ui/Input'
-import { Sheet, SheetHeader, SheetTitle } from './ui/Sheet'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from './ui/Sheet'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/Table'
-import { Plus, Trash, FileText } from 'lucide-react'
+import { Plus, Trash, X } from 'lucide-react'
 import { generateId } from '../lib/utils'
 // import { generateInvoice } from '../lib/invoiceGenerator' // Use new ReactPDF one
 import { pdf } from '@react-pdf/renderer'
 import InvoiceDocument from './InvoiceDocument'
+import { DeleteConfirmDialog } from './DeleteConfirmDialog'
 
 export function EditTransactionDrawer({ isOpen, onClose, transaction }) {
-    const { updateTransaction, cars, customers } = useDriveway()
+    const { updateTransaction, cars, customers, deleteTransaction } = useDriveway()
+    const [showDeleteDialog, setShowDeleteDialog] = useState(false)
     const [formData, setFormData] = useState({
         startDate: '',
         endDate: '',
@@ -80,6 +82,13 @@ export function EditTransactionDrawer({ isOpen, onClose, transaction }) {
         const endDate = new Date(end)
         const diffTime = Math.abs(endDate - startDate)
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1
+
+        if (diffDays >= 20 && car.monthlyPrice) {
+            const effectiveDailyRate = car.monthlyPrice / 30
+            return Math.round((effectiveDailyRate * diffDays) + 300)
+        }
+        // Basic fallback if no complex logic needed or monthly price missing
+        // Note: Ideally this should match GlobalRentalDrawer logic fully (10 days etc), but for now implementing the requested >20 rule.
         return diffDays * (Number(car.price) || 0)
     }
 
@@ -158,7 +167,7 @@ export function EditTransactionDrawer({ isOpen, onClose, transaction }) {
                             phone: customer?.phone || "",
                             address: customer?.address || "",
                             vehicles: [{
-                                vehicleModel: `${car?.make} ${car?.model}`,
+                                vehicleModel: `${car?.make} ${car?.model} `,
                                 vehicleNo: car?.plateNumber || "",
                                 startDate: transaction.startDate,
                                 endDate: transaction.endDate,
@@ -166,6 +175,7 @@ export function EditTransactionDrawer({ isOpen, onClose, transaction }) {
                                 ratePerDay: Number(car?.price || 0)
                             }],
                             extraCharges: [], // TODO: Map any extras from payments if implied
+                            discount: transaction.discount || 0
                         }
 
                         // Generate Blob and Download
@@ -255,10 +265,37 @@ export function EditTransactionDrawer({ isOpen, onClose, transaction }) {
                         </div>
                     </div>
                     <div className="space-y-2">
+                        <label className="text-sm font-medium">Discount</label>
+                        <Input
+                            type="number"
+                            value={formData.discount || ''}
+                            onChange={e => {
+                                const start = new Date(formData.startDate)
+                                const end = new Date(formData.endDate)
+                                const diffTime = Math.abs(end - start)
+                                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1
+
+                                let baseTotal = 0
+                                if (diffDays >= 20 && car.monthlyPrice) {
+                                    const effectiveDailyRate = car.monthlyPrice / 30
+                                    baseTotal = Math.round((effectiveDailyRate * diffDays) + 300)
+                                } else {
+                                    baseTotal = diffDays * (Number(car.price) || 0)
+                                }
+
+                                const newDiscount = Number(e.target.value)
+                                const newTotal = Math.max(0, baseTotal - newDiscount)
+
+                                setFormData({ ...formData, discount: e.target.value, total: newTotal })
+                            }}
+                            placeholder="Discount amount"
+                        />
+                    </div>
+                    <div className="space-y-2">
                         <label className="text-sm font-medium">Notes</label>
                         <Input
                             placeholder="Notes"
-                            value={formData.notes}
+                            value={formData.notes || ''}
                             onChange={e => setFormData({ ...formData, notes: e.target.value })}
                         />
                     </div>
@@ -337,8 +374,8 @@ export function EditTransactionDrawer({ isOpen, onClose, transaction }) {
                                             <div className="text-[10px] text-muted-foreground">{p.date.split('T')[0]} • {p.medium}</div>
                                         </TableCell>
                                         <TableCell>
-                                            <span className={`text-xs px-2 py-0.5 rounded-full ${p.type === 'Credit' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                                }`}>
+                                            <span className={`text - xs px - 2 py - 0.5 rounded - full ${p.type === 'Credit' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                                } `}>
                                                 {p.type}
                                             </span>
                                         </TableCell>
@@ -377,17 +414,28 @@ export function EditTransactionDrawer({ isOpen, onClose, transaction }) {
                         </div>
                         <div className="flex justify-between items-center text-sm pt-2 border-t">
                             <span className="font-medium">Pending Balance</span>
-                            <span className={`font-bold ${pendingBalance > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                            <span className={`font - bold ${pendingBalance > 0 ? 'text-destructive' : 'text-green-600'} `}>
                                 ₹{pendingBalance}
                             </span>
                         </div>
                     </div>
                 </div>
 
-                <div className="mt-auto pt-4 border-t bg-background sticky bottom-0">
-                    <Button type="submit" form="edit-transaction-form" className="w-full">Save Changes</Button>
+                <div className="mt-auto pt-4 border-t bg-background sticky bottom-0 flex gap-4">
+                    <Button type="button" variant="destructive" className="flex-1" onClick={() => setShowDeleteDialog(true)}>
+                        Delete Transaction
+                    </Button>
+                    <Button type="submit" form="edit-transaction-form" className="flex-1">Save Changes</Button>
                 </div>
-            </div>
-        </Sheet>
+            </div >
+
+            <DeleteConfirmDialog
+                isOpen={showDeleteDialog}
+                onClose={() => setShowDeleteDialog(false)}
+                onConfirm={() => deleteTransaction(transaction.id)}
+                title="Delete Transaction"
+                description="Are you sure you want to delete this transaction? This action cannot be undone."
+            />
+        </Sheet >
     )
 }

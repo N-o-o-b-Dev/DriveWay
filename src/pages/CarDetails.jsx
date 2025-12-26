@@ -11,6 +11,7 @@ import { EditCarDrawer } from '../components/EditCarDrawer'
 import { AddMaintenanceDrawer } from '../components/AddMaintenanceDrawer'
 import { EditMaintenanceDrawer } from '../components/EditMaintenanceDrawer'
 import { EditTransactionDrawer } from '../components/EditTransactionDrawer'
+import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog'
 import { generateId } from '../lib/utils'
 
 
@@ -26,6 +27,7 @@ export function CarDetails() {
     const [isEditMaintenanceOpen, setIsEditMaintenanceOpen] = useState(false)
     const [editingTransaction, setEditingTransaction] = useState(null)
     const [isEditTransactionOpen, setIsEditTransactionOpen] = useState(false)
+    const [deleteDialogProps, setDeleteDialogProps] = useState({ isOpen: false, transactionId: null })
 
 
     const handleEditMaintenance = (record) => {
@@ -34,8 +36,12 @@ export function CarDetails() {
     }
 
     const handleDeleteTransaction = (transactionId) => {
-        if (window.confirm('Are you sure you want to delete this rental record?')) {
-            deleteTransaction(transactionId)
+        setDeleteDialogProps({ isOpen: true, transactionId })
+    }
+
+    const confirmDeleteTransaction = () => {
+        if (deleteDialogProps.transactionId) {
+            deleteTransaction(deleteDialogProps.transactionId)
         }
     }
 
@@ -46,7 +52,8 @@ export function CarDetails() {
         notes: '',
         paymentStatus: 'Pending',
         dailyRate: '',
-        mileage: ''
+        mileage: '',
+        discount: ''
     })
     const [priceDetails, setPriceDetails] = useState({
         total: 0,
@@ -54,7 +61,9 @@ export function CarDetails() {
     })
 
     const car = cars.find(c => c.id === id)
-    const carTransactions = transactions.filter(t => t.carId === id)
+    const carTransactions = transactions
+        .filter(t => t.carId === id && t.status !== 'Cancelled')
+        .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
 
     useEffect(() => {
         if (car) {
@@ -85,11 +94,11 @@ export function CarDetails() {
             if (days > 0) {
                 let remainingDays = days
 
-                if (days >= 30 && car.monthlyPrice) {
+                if (days >= 20 && car.monthlyPrice) {
                     const effectiveDailyRate = car.monthlyPrice / 30
-                    price = Math.round(effectiveDailyRate * days)
+                    price = Math.round((effectiveDailyRate * days) + 300)
                     breakdown.push({
-                        label: `Monthly Rate Applied (${days} days @ ₹${Math.round(effectiveDailyRate)}/day)`,
+                        label: `Long Term Rate (>=20 days) (${days} days @ ₹${Math.round(effectiveDailyRate)}/day + ₹300)`,
                         amount: price
                     })
                 } else if (days >= 10 && car.tenDayPrice) {
@@ -107,9 +116,21 @@ export function CarDetails() {
                     })
                 }
             }
+            // Apply Discount
+            const discountAmount = rentalData.discount ? parseFloat(rentalData.discount) : 0
+            if (discountAmount > 0) {
+                breakdown.push({
+                    label: `Discount`,
+                    amount: -discountAmount
+                })
+                price = Math.max(0, price - discountAmount)
+            }
+
             setPriceDetails({ total: price, breakdown })
+        } else {
+            setPriceDetails({ total: 0, breakdown: [] })
         }
-    }, [rentalData.startDate, rentalData.endDate, car, rentalData.dailyRate])
+    }, [rentalData.startDate, rentalData.endDate, car, rentalData.dailyRate, rentalData.discount])
 
     if (!car) return <div>Car not found</div>
 
@@ -687,6 +708,14 @@ export function CarDetails() {
                 isOpen={isEditOpen}
                 onClose={() => setIsEditOpen(false)}
                 car={car}
+            />
+
+            <DeleteConfirmDialog
+                isOpen={deleteDialogProps.isOpen}
+                onClose={() => setDeleteDialogProps({ isOpen: false, transactionId: null })}
+                onConfirm={confirmDeleteTransaction}
+                title="Delete Rental Record"
+                description="Are you sure you want to delete this rental record? This action cannot be undone."
             />
         </div>
     )

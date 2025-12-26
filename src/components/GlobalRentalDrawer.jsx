@@ -16,7 +16,10 @@ export function GlobalRentalDrawer({ isOpen, onClose }) {
         notes: '',
         paymentStatus: 'Pending',
         dailyRate: '',
-        mileage: ''
+        paymentStatus: 'Pending',
+        dailyRate: '',
+        mileage: '',
+        discount: ''
     })
     const [priceDetails, setPriceDetails] = useState({
         total: 0,
@@ -54,11 +57,11 @@ export function GlobalRentalDrawer({ isOpen, onClose }) {
             if (days > 0) {
                 let remainingDays = days
 
-                if (days >= 30 && selectedCar.monthlyPrice) {
+                if (days >= 20 && selectedCar.monthlyPrice) {
                     const effectiveDailyRate = selectedCar.monthlyPrice / 30
-                    price = Math.round(effectiveDailyRate * days)
+                    price = Math.round((effectiveDailyRate * days) + 300)
                     breakdown.push({
-                        label: `Monthly Rate Applied (${days} days @ ₹${Math.round(effectiveDailyRate)}/day)`,
+                        label: `Long Term Rate (>=20 days) (${days} days @ ₹${Math.round(effectiveDailyRate)}/day + ₹300)`,
                         amount: price
                     })
                 } else if (days >= 10 && selectedCar.tenDayPrice) {
@@ -76,11 +79,22 @@ export function GlobalRentalDrawer({ isOpen, onClose }) {
                     })
                 }
             }
+
+            // Apply Discount
+            const discountAmount = rentalData.discount ? parseFloat(rentalData.discount) : 0
+            if (discountAmount > 0) {
+                breakdown.push({
+                    label: `Discount`,
+                    amount: -discountAmount
+                })
+                price = Math.max(0, price - discountAmount)
+            }
+
             setPriceDetails({ total: price, breakdown })
         } else {
             setPriceDetails({ total: 0, breakdown: [] })
         }
-    }, [rentalData.startDate, rentalData.endDate, selectedCar, rentalData.dailyRate])
+    }, [rentalData.startDate, rentalData.endDate, selectedCar, rentalData.dailyRate, rentalData.discount])
 
     const handleSubmit = (e) => {
         e.preventDefault()
@@ -126,10 +140,13 @@ export function GlobalRentalDrawer({ isOpen, onClose }) {
             notes: rentalData.notes,
             breakdown: priceDetails.breakdown,
             dailyRate: rentalData.dailyRate,
-            startMileage: rentalData.mileage
+            breakdown: priceDetails.breakdown,
+            dailyRate: rentalData.dailyRate,
+            startMileage: rentalData.mileage,
+            discount: rentalData.discount
         })
         onClose()
-        setRentalData({ carId: '', customerId: '', dealerId: '', startDate: '', endDate: '', notes: '', paymentStatus: 'Pending', dailyRate: '', mileage: '' })
+        setRentalData({ carId: '', customerId: '', dealerId: '', startDate: '', endDate: '', notes: '', paymentStatus: 'Pending', dailyRate: '', mileage: '', discount: '' })
     }
 
     return (
@@ -147,8 +164,10 @@ export function GlobalRentalDrawer({ isOpen, onClose }) {
                             onChange={e => setRentalData({
                                 ...rentalData,
                                 carId: e.target.value,
+                                carId: e.target.value,
                                 dailyRate: '',
-                                mileage: ''
+                                mileage: '',
+                                discount: ''
                             })}
                             required
                         >
@@ -234,6 +253,16 @@ export function GlobalRentalDrawer({ isOpen, onClose }) {
                                 placeholder="Starting mileage"
                             />
                         </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Discount Amount</label>
+                        <Input
+                            type="number"
+                            value={rentalData.discount}
+                            onChange={e => setRentalData({ ...rentalData, discount: e.target.value })}
+                            placeholder="Enter discount amount"
+                        />
                     </div>
 
                     <div className="space-y-2">
