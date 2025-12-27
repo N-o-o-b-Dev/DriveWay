@@ -17,6 +17,7 @@ const DealerDetailsPage = lazy(() => import('./pages/DealerDetailsPage').then(mo
 const Transactions = lazy(() => import('./pages/Transactions').then(module => ({ default: module.Transactions })))
 const Financials = lazy(() => import('./pages/Financials').then(module => ({ default: module.Financials })))
 const Maintenance = lazy(() => import('./pages/Maintenance').then(module => ({ default: module.Maintenance })))
+const Register = lazy(() => import('./pages/Register').then(module => ({ default: module.Register })))
 const Login = lazy(() => import('./pages/Login').then(module => ({ default: module.Login })))
 const Signup = lazy(() => import('./pages/Signup').then(module => ({ default: module.Signup })))
 
@@ -61,6 +62,7 @@ function App() {
                                                 <Route path="/transactions" element={<Transactions />} />
                                                 <Route path="/financials" element={<Financials />} />
                                                 <Route path="/maintenance" element={<Maintenance />} />
+                                                <Route path="/register" element={<Register />} />
 
                                                 {/* Billing Section */}
                                                 <Route path="/billing" element={<BillingDashboard />} />

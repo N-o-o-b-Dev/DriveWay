@@ -4,14 +4,18 @@ import { Button } from './ui/Button'
 import { Input } from './ui/Input'
 import { Sheet, SheetHeader, SheetTitle } from './ui/Sheet'
 
-export function GlobalRentalDrawer({ isOpen, onClose }) {
+export function GlobalRentalDrawer({ isOpen, onClose, preSelectedCarId }) {
     const { cars, customers, dealers, addTransaction, updateCar, transactions } = useDriveway()
 
     const [rentalData, setRentalData] = useState({
-        carId: '',
+        carId: preSelectedCarId || '',
         customerId: '',
         dealerId: '',
         startDate: '',
+        endDate: '',
+        notes: '',
+        paymentStatus: 'Pending',
+        dailyRate: '',
         endDate: '',
         notes: '',
         paymentStatus: 'Pending',
@@ -27,6 +31,14 @@ export function GlobalRentalDrawer({ isOpen, onClose }) {
     })
 
     const selectedCar = cars.find(c => c.id === rentalData.carId)
+
+    useEffect(() => {
+        if (preSelectedCarId) {
+            setRentalData(prev => ({ ...prev, carId: preSelectedCarId }))
+        } else {
+            // Optional: Clear selection if prop becomes null, but usually we just want to set it if provided
+        }
+    }, [preSelectedCarId, isOpen]) // Reset when drawer opens
 
     useEffect(() => {
         if (selectedCar) {

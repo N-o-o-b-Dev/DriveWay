@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Car, Users, Receipt, LayoutDashboard, Moon, Sun, Plus, Wrench, Menu, X, FileText, LogOut } from 'lucide-react'
+import { Car, Users, Receipt, LayoutDashboard, Moon, Sun, Plus, Wrench, Menu, X, FileText, LogOut, ClipboardList } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { Button } from './ui/Button'
 import { GlobalRentalDrawer } from './GlobalRentalDrawer'
@@ -47,6 +47,7 @@ export function Layout({ children }) {
         { icon: FileText, label: 'Rentals', path: '/transactions' },
         { icon: Receipt, label: 'Financials', path: '/financials' },
         { icon: Wrench, label: 'Maintenance', path: '/maintenance' },
+        { icon: ClipboardList, label: 'Register', path: '/register' },
         { icon: FileText, label: 'Billing App', path: '/billing' },
     ]
 

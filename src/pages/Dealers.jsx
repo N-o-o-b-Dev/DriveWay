@@ -52,6 +52,11 @@ export function Dealers() {
     const [editingDealer, setEditingDealer] = useState(null)
     const [pendingDrawerEntity, setPendingDrawerEntity] = useState(null)
     const [quickViewDealer, setQuickViewDealer] = useState(null)
+    const [searchTerm, setSearchTerm] = useState('')
+
+    const filteredDealers = dealers.filter(d =>
+        (d.name + ' ' + d.phone + ' ' + d.email).toLowerCase().includes(searchTerm.toLowerCase())
+    )
 
     const handleImageChange = (field, e) => {
         const file = e.target.files[0]
@@ -98,6 +103,20 @@ export function Dealers() {
                 <Button onClick={() => setIsAdding(!isAdding)}>
                     <Plus className="mr-2 h-4 w-4" /> Add Dealer
                 </Button>
+            </div>
+
+            <div className="flex items-center bg-muted/40 p-4 rounded-lg border">
+                <div className="relative flex-1">
+                    <div className="absolute left-2.5 top-2.5 text-muted-foreground">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+                    </div>
+                    <Input
+                        placeholder="Search dealers by name, phone, or email..."
+                        className="pl-9 bg-background"
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                    />
+                </div>
             </div>
 
             {isAdding && (
@@ -216,7 +235,7 @@ export function Dealers() {
             )}
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 items-start">
-                {dealers.map((dealer) => (
+                {filteredDealers.map((dealer) => (
                     <DealerCard
                         key={dealer.id}
                         dealer={dealer}

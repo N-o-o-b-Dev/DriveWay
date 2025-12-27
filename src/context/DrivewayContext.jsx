@@ -13,6 +13,7 @@ export function DrivewayProvider({ children }) {
     const [dealers, setDealers] = useState([])
     const [transactions, setTransactions] = useState([])
     const [maintenanceRecords, setMaintenanceRecords] = useState([])
+    const [registers, setRegisters] = useState([])
     const [isLoading, setIsLoading] = useState(true)
 
     // Helper to convert Firebase object to array
@@ -30,6 +31,7 @@ export function DrivewayProvider({ children }) {
             setDealers([])
             setTransactions([])
             setMaintenanceRecords([])
+            setRegisters([])
             setIsLoading(false)
             return
         }
@@ -41,12 +43,13 @@ export function DrivewayProvider({ children }) {
         const dealersRef = ref(database, 'dealers')
         const transactionsRef = ref(database, 'transactions')
         const maintenanceRef = ref(database, 'maintenanceRecords')
+        const registersRef = ref(database, 'registers')
 
         // We use a counter to track initial loads to turn off the global loading spinner
         let loadedCount = 0
         const checkLoaded = () => {
             loadedCount++
-            if (loadedCount >= 5) {
+            if (loadedCount >= 6) {
                 setIsLoading(false)
             }
         }
@@ -71,6 +74,10 @@ export function DrivewayProvider({ children }) {
             setMaintenanceRecords(snapshotToArray(snapshot))
             checkLoaded()
         })
+        const unsubRegisters = onValue(registersRef, (snapshot) => {
+            setRegisters(snapshotToArray(snapshot))
+            checkLoaded()
+        })
 
         return () => {
             unsubCars()
@@ -78,6 +85,7 @@ export function DrivewayProvider({ children }) {
             unsubDealers()
             unsubTransactions()
             unsubMaintenance()
+            unsubRegisters()
         }
     }, [currentUser])
 
@@ -107,8 +115,24 @@ export function DrivewayProvider({ children }) {
         push(ref(database, 'dealers'), newDealer)
     }
 
+    const addRegister = (entry) => {
+        push(ref(database, 'registers'), {
+            ...entry,
+            createdAt: new Date().toISOString()
+        })
+    }
+
     const addTransaction = (transaction) => {
         push(ref(database, 'transactions'), transaction)
+
+        // Auto-add Exit entry
+        addRegister({
+            carId: transaction.carId,
+            customerId: transaction.customerId, // Using customerId field for generic 'Name' ref
+            date: new Date().toISOString(),
+            type: 'Exit',
+            notes: 'Auto-generated from Rental'
+        })
     }
 
     const updateCar = (id, updatedCar) => {
@@ -251,8 +275,9 @@ export function DrivewayProvider({ children }) {
             addMaintenanceRecord,
             updateMaintenanceRecord,
             deleteMaintenanceRecord,
+            registers,
+            addRegister,
             deleteWorkshop,
-            renameWorkshop,
             renameWorkshop,
             isLoading,
         }}>
