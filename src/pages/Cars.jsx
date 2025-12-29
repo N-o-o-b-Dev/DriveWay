@@ -32,7 +32,7 @@ export function Cars() {
     // Re-using the existing state structure for compatibility if we want to toggle the form.
     const [newCar, setNewCar] = useState({
         make: '', model: '', year: '', price: '', tenDayPrice: '', monthlyPrice: '', plateNumber: '', image: '',
-        color: '', mileage: '', fuelType: 'Petrol', fitnessValidTo: '', taxValidTo: '', insuranceValidTo: '', description: '',
+        color: '', mileage: '', fuelType: 'Petrol', fitnessValidTo: '', taxValidTo: '', insuranceValidTo: '', pollutionValidTo: '', description: '',
         rcImage: '', insuranceImage: '', pocImage: ''
     })
 
@@ -104,9 +104,9 @@ export function Cars() {
                         <span>/</span>
                         <span>Fleet</span>
                         <span>/</span>
-                        <span className="text-white">Inventory</span>
+                        <span className="text-gray-900 dark:text-white">Inventory</span>
                     </div>
-                    <h1 className="text-3xl font-bold tracking-tight text-white">Vehicle Inventory</h1>
+                    <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Vehicle Inventory</h1>
                     <p className="text-muted-foreground">Manage your entire fleet of vehicles across all locations.</p>
                 </div>
                 <Button
@@ -142,6 +142,7 @@ export function Cars() {
                         <option value="Available">Available</option>
                         <option value="On Rent">Rented</option>
                         <option value="On Maintenance">Maintenance</option>
+                        <option value="Not Available">Not Available</option>
                     </select>
                     {/* Tiny Chevron Helper */}
                     <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
@@ -198,6 +199,8 @@ export function Cars() {
                             <Input placeholder="Color" value={newCar.color} onChange={e => setNewCar({ ...newCar, color: e.target.value })} className="bg-[#292524] border-0" />
                             <Input placeholder="Mileage" value={newCar.mileage} onChange={e => setNewCar({ ...newCar, mileage: e.target.value })} className="bg-[#292524] border-0" />
                             <Input placeholder="Price/Day" type="number" value={newCar.price} onChange={e => setNewCar({ ...newCar, price: e.target.value })} className="bg-[#292524] border-0" required />
+                            <Input placeholder="Price/10 Days" type="number" value={newCar.tenDayPrice} onChange={e => setNewCar({ ...newCar, tenDayPrice: e.target.value })} className="bg-[#292524] border-0" />
+                            <Input placeholder="Price/Month" type="number" value={newCar.monthlyPrice} onChange={e => setNewCar({ ...newCar, monthlyPrice: e.target.value })} className="bg-[#292524] border-0" />
                             {/* Fuel Type Select */}
                             <select className="bg-[#292524] text-white rounded-md px-3 border-0 text-sm" value={newCar.fuelType} onChange={e => setNewCar({ ...newCar, fuelType: e.target.value })}>
                                 <option value="Petrol">Petrol</option>
@@ -206,6 +209,23 @@ export function Cars() {
                                 <option value="Hybrid">Hybrid</option>
                             </select>
                         </div>
+
+                        {/* Expiry Dates Section */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                            <div className="space-y-1">
+                                <label className="text-xs text-gray-400 ml-1">Fitness Expiry</label>
+                                <Input type="date" value={newCar.fitnessValidTo} onChange={e => setNewCar({ ...newCar, fitnessValidTo: e.target.value })} className="bg-[#292524] border-0 text-white" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs text-gray-400 ml-1">Insurance Expiry</label>
+                                <Input type="date" value={newCar.insuranceValidTo} onChange={e => setNewCar({ ...newCar, insuranceValidTo: e.target.value })} className="bg-[#292524] border-0 text-white" />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs text-gray-400 ml-1">Pollution Expiry</label>
+                                <Input type="date" value={newCar.pollutionValidTo} onChange={e => setNewCar({ ...newCar, pollutionValidTo: e.target.value })} className="bg-[#292524] border-0 text-white" />
+                            </div>
+                        </div>
+
                         <Input type="file" accept="image/*" onChange={(e) => handleImageChange('image', e)} className="bg-[#292524] border-0 text-white" />
                         <div className="flex justify-end gap-3">
                             <Button type="button" variant="ghost" onClick={() => setIsAdding(false)}>Cancel</Button>
@@ -220,7 +240,10 @@ export function Cars() {
                 {paginatedCars.map(car => (
                     <Card key={car.id} className="bg-[#1c1917] border-0 overflow-hidden group hover:ring-1 hover:ring-white/20 transition-all">
                         {/* Image Section */}
-                        <div className="relative h-48 w-full overflow-hidden">
+                        <div
+                            className="relative h-48 w-full overflow-hidden cursor-pointer"
+                            onClick={() => navigate(`/cars/${car.id}`)}
+                        >
                             <img
                                 src={car.image || 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?q=80&w=2070&auto=format&fit=crop'}
                                 alt={`${car.make} ${car.model}`}
@@ -232,7 +255,8 @@ export function Cars() {
                                     "px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase shadow-sm border",
                                     car.status === 'Available' ? "bg-green-500/20 text-green-400 border-green-500/30" :
                                         car.status === 'On Rent' ? "bg-orange-500/20 text-orange-400 border-orange-500/30" :
-                                            "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
+                                            car.status === 'Not Available' ? "bg-gray-500/20 text-gray-400 border-gray-500/30" :
+                                                "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"
                                 )}>
                                     {car.status === 'On Rent' ? 'RENTED' : car.status.toUpperCase()}
                                 </span>

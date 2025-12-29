@@ -99,7 +99,9 @@ export function DrivewayProvider({ children }) {
         }
         const newCustomer = {
             ...customer,
-            uniqueId: generateUniqueId('CUST')
+            uniqueId: generateUniqueId('CUST'),
+            createdAt: new Date().toISOString(),
+            status: 'Active' // Default status
         }
         push(ref(database, 'customers'), newCustomer)
     }
@@ -161,9 +163,40 @@ export function DrivewayProvider({ children }) {
 
     const updateTransaction = (id, updatedTransaction) => {
         update(ref(database, `transactions/${id}`), updatedTransaction)
+
+        // If Status is Cancelled or Reserved, remove the 'Exit' entry to free up the car
+        if (updatedTransaction.status === 'Cancelled' || updatedTransaction.status === 'Reserved') {
+            // Find the latest 'Exit' entry for this car in the register
+            const carExits = registers
+                .filter(r => r.carId === updatedTransaction.carId && r.type === 'Exit')
+                .sort((a, b) => new Date(b.date) - new Date(a.date)) // Newest first
+
+            // Remove the most recent exit if found
+            // Note: Ideally we should link register ID to transaction ID, but for now we assume the latest Exit is the one.
+            if (carExits.length > 0) {
+                const lastExit = carExits[0]
+                remove(ref(database, `registers/${lastExit.id}`))
+            }
+        }
     }
 
     const deleteTransaction = (id) => {
+        // Find the transaction to get the carId
+        const transactionToDelete = transactions.find(t => t.id === id)
+
+        if (transactionToDelete) {
+            // Find the latest 'Exit' entry for this car in the register
+            const carExits = registers
+                .filter(r => r.carId === transactionToDelete.carId && r.type === 'Exit')
+                .sort((a, b) => new Date(b.date) - new Date(a.date)) // Newest first
+
+            // Remove the most recent exit if found
+            if (carExits.length > 0) {
+                const lastExit = carExits[0]
+                remove(ref(database, `registers/${lastExit.id}`))
+            }
+        }
+
         remove(ref(database, `transactions/${id}`))
     }
 
@@ -250,6 +283,18 @@ export function DrivewayProvider({ children }) {
             status = 'On Rent'
         }
 
+        // Check Register (Manual or Auto Exit)
+        // If not already Rented or Maintenance, check if last register entry was 'Exit'
+        if (status !== 'On Rent' && status !== 'On Maintenance' && status !== 'Maintenance') {
+            const carRegisters = registers
+                .filter(r => r.carId === car.id)
+                .sort((a, b) => new Date(b.date) - new Date(a.date))
+
+            if (carRegisters.length > 0 && carRegisters[0].type === 'Exit') {
+                status = 'Not Available'
+            }
+        }
+
         return { ...car, status }
     })
 
@@ -277,6 +322,7 @@ export function DrivewayProvider({ children }) {
             deleteMaintenanceRecord,
             registers,
             addRegister,
+            deleteRegister: (id) => remove(ref(database, `registers/${id}`)),
             deleteWorkshop,
             renameWorkshop,
             isLoading,

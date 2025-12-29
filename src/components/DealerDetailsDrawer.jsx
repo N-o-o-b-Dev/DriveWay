@@ -5,7 +5,7 @@ import { Sheet, SheetHeader, SheetTitle } from './ui/Sheet'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card'
 import { Button } from './ui/Button'
 import { Mail, Phone, Calendar, Car, Edit } from 'lucide-react'
-import { EditTransactionDrawer } from './EditTransactionDrawer'
+import { EditTransactionModal } from './EditTransactionModal'
 
 export function DealerDetailsDrawer({ isOpen, onClose, dealer }) {
     const { transactions, customers, cars } = useDriveway()
@@ -203,7 +203,7 @@ export function DealerDetailsDrawer({ isOpen, onClose, dealer }) {
 
             </div>
 
-            <EditTransactionDrawer
+            <EditTransactionModal
                 isOpen={!!editingTransaction}
                 onClose={() => setEditingTransaction(null)}
                 transaction={editingTransaction}

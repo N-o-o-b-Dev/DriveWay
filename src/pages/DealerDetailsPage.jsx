@@ -1,270 +1,427 @@
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useDriveway } from '../context/DrivewayContext'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
-import { Mail, Phone, Calendar, Car, Edit, ArrowLeft } from 'lucide-react'
-import { EditTransactionDrawer } from '../components/EditTransactionDrawer'
+import { Card, CardContent } from '../components/ui/Card'
+import { Badge } from '../components/ui/Badge'
+import { Input } from '../components/ui/Input'
+import {
+    Mail, Phone, Calendar, Car, Edit, ArrowLeft, Download, CreditCard,
+    Wallet, CheckCircle, AlertCircle, Users, MapPin, Building, FileText, Search, Plus, MoreHorizontal,
+    User as UserIcon, Folder
+} from 'lucide-react'
+import { EditTransactionModal } from '../components/EditTransactionModal'
+import { cn } from '../lib/utils'
 
 export function DealerDetailsPage() {
     const { id } = useParams()
     const navigate = useNavigate()
     const { transactions, dealers, customers, cars } = useDriveway()
-    const [dealer, setDealer] = useState(null)
     const [editingTransaction, setEditingTransaction] = useState(null)
 
-    useEffect(() => {
-        const foundDealer = dealers.find(d => d.id === id)
-        if (foundDealer) {
-            setDealer(foundDealer)
-        }
-    }, [id, dealers])
+    // Derived State
+    const dealer = useMemo(() => dealers.find(d => d.id === id), [dealers, id])
 
-    if (!dealer) {
-        return <div className="p-8">Loading...</div>
-    }
+    // Sorted Transactions
+    const dealerTransactions = useMemo(() => {
+        if (!dealer) return []
+        return transactions
+            .filter(t => t.dealerId === dealer.id)
+            .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
+    }, [dealer, transactions])
 
-    // Find all transactions for this dealer
-    const dealerTransactions = transactions.filter(t => t.dealerId === dealer.id)
+    // Stats Calculations
+    const stats = useMemo(() => {
+        if (!dealer) return { total: 0, paid: 0, pending: 0, customers: 0 }
 
-    // Calculate Stats
-    const totalEarned = dealerTransactions.reduce((sum, t) => sum + (Number(t.total) || 0), 0)
-    const pendingAmount = dealerTransactions
-        .filter(t => t.paymentStatus !== 'Paid')
-        .reduce((sum, t) => sum + Math.max(0, (Number(t.total) || 0) - (Number(t.amountPaid) || 0)), 0)
+        const dealerTrans = dealerTransactions.filter(t => t.status !== 'Cancelled')
+        const total = dealerTrans.reduce((sum, t) => sum + (Number(t.total) || 0), 0)
+        const paid = dealerTrans.reduce((sum, t) => sum + (Number(t.amountPaid) || 0), 0)
+        const pending = dealerTrans.reduce((sum, t) => {
+            const tTotal = Number(t.total) || 0
+            const tPaid = Number(t.amountPaid) || 0
+            return sum + Math.max(0, tTotal - tPaid)
+        }, 0)
 
-    // Get unique customer IDs for existing functionality
-    const customerIds = [...new Set(dealerTransactions.map(t => t.customerId).filter(id => id))]
-    const dealerCustomers = customers.filter(c => customerIds.includes(c.id))
+        const uniqueCustomers = new Set(dealerTrans.map(t => t.customerId).filter(Boolean)).size
 
-    // Generic Image Viewer
-    const handleViewImage = (imageDataUrl, title = "Image Preview") => {
-        if (!imageDataUrl) return
-        const win = window.open("")
-        win.document.write(`
-            <html>
-                <head><title>${title}</title></head>
-                <body style="margin:0; display:flex; justify-content:center; align-items:center; background:#f0f0f0; height:100vh;">
-                    <img src="${imageDataUrl}" style="max-width:100%; max-height:100vh; object-fit:contain; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);" />
-                </body>
-            </html>
-        `)
-        win.document.close()
-    }
+        return { total, paid, pending, customers: uniqueCustomers }
+    }, [dealer, transactions])
+
+    // Tabs / Pagination State
+    const [customerPage, setCustomerPage] = useState(1)
+    const [transactionPage, setTransactionPage] = useState(1)
+    const ITEMS_PER_PAGE = 5
+
+    if (!dealer) return <div className="p-8 text-white">Loading...</div>
+
+    // Sub-components helpers
+    const StatCard = ({ icon: Icon, label, value, colorClass, iconBgClass }) => (
+        <Card className="bg-[#1c1917] border-white/5">
+            <CardContent className="p-6 flex items-center gap-4">
+                <div className={cn("h-12 w-12 rounded-xl flex items-center justify-center", iconBgClass)}>
+                    <Icon className={cn("h-6 w-6", colorClass)} />
+                </div>
+                <div>
+                    <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">{label}</p>
+                    <h3 className="text-2xl font-black text-white">{value}</h3>
+                </div>
+            </CardContent>
+        </Card>
+    )
+
+    const DetailItem = ({ icon: Icon, label, value, subValue }) => (
+        <div className="flex items-start gap-4">
+            <div className="h-10 w-10 rounded-lg bg-[#292524] flex items-center justify-center shrink-0">
+                <Icon className="h-5 w-5 text-gray-500" />
+            </div>
+            <div>
+                <p className="text-xs text-gray-500 font-medium mb-0.5">{label}</p>
+                <p className="text-sm font-bold text-white">{value || 'N/A'}</p>
+                {subValue && <p className="text-[10px] text-gray-500 mt-1 max-w-[200px]">{subValue}</p>}
+            </div>
+        </div>
+    )
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" onClick={() => navigate('/dealers')}>
-                    <ArrowLeft className="h-5 w-5" />
-                </Button>
-                {dealer.image ? (
-                    <div className="h-16 w-16 rounded-full overflow-hidden border-2 border-muted cursor-pointer" onClick={() => handleViewImage(dealer.image, "Profile Image")}>
-                        <img src={dealer.image} alt={dealer.name} className="h-full w-full object-cover" />
+        <div className="space-y-8 animate-in fade-in duration-500">
+            {/* Header Section */}
+            <div className="relative">
+                {/* Banner */}
+                <div className="h-48 w-full bg-gradient-to-r from-gray-900 to-[#1c1917] rounded-t-2xl border-x border-t border-white/5"></div>
+
+                {/* Profile Info */}
+                <div className="bg-[#1c1917] px-8 pb-8 rounded-b-2xl border-x border-b border-white/5 -mt-1 pt-12 relative">
+                    {/* Avatar */}
+                    <div className="absolute -top-16 left-8 h-32 w-32 rounded-full border-4 border-[#1c1917] bg-[#292524] flex items-center justify-center overflow-hidden">
+                        {dealer.image ? (
+                            <img src={dealer.image} alt={dealer.name} className="h-full w-full object-cover" />
+                        ) : (
+                            <span className="text-4xl font-bold text-gray-600">{dealer.name[0]}</span>
+                        )}
                     </div>
-                ) : (
-                    <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-2xl">
-                        {dealer.name[0]}
+
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 ml-36"> {/* 36 (left-8 + w-32 - padding) approx adjustment */}
+                        <div>
+                            <div className="flex items-center gap-3 mb-2">
+                                <h1 className="text-4xl font-black text-white">{dealer.name}</h1>
+                                <Badge className="bg-red-600/10 text-red-500 border-red-600/20 hover:bg-red-600/20">
+                                    Personal Broker
+                                </Badge>
+                            </div>
+                            <div className="flex items-center gap-4 text-gray-400 text-sm">
+                                <span className="flex items-center gap-1">
+                                    <MapPin className="h-4 w-4" />
+                                    {dealer.address || 'Location Unknown'}
+                                </span>
+                                <span className="w-1 h-1 rounded-full bg-gray-600"></span>
+                                <span>Joined Jan 2023</span> {/* Static for now or add createdAt */}
+                                <span className="w-1 h-1 rounded-full bg-gray-600"></span>
+                                <span className="flex items-center gap-1 text-yellow-500">
+                                    ★ 4.9 <span className="text-gray-500">(AVG. RATING)</span>
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                            <Button
+                                onClick={() => navigate('/dealers')}
+                                variant="outline"
+                                className="border-white/10 text-gray-300 hover:bg-white/5 hover:text-white"
+                            >
+                                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Network
+                            </Button>
+                            <Button variant="outline" className="border-white/10 text-gray-300 hover:bg-white/5 hover:text-white">
+                                <Download className="mr-2 h-4 w-4" /> Download Report
+                            </Button>
+                            <Button className="bg-red-600 hover:bg-red-700 text-white font-bold px-6 shadow-lg shadow-red-900/20">
+                                Pay Commission
+                            </Button>
+                        </div>
                     </div>
-                )}
-                <h1 className="text-3xl font-bold tracking-tight">{dealer.name}</h1>
+                </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <StatCard
+                    icon={Wallet}
+                    label="Total Amount"
+                    value={`₹${stats.total.toLocaleString()}`}
+                    colorClass="text-white"
+                    iconBgClass="bg-gray-800"
+                />
+                <StatCard
+                    icon={CheckCircle}
+                    label="Paid Amount"
+                    value={`₹${stats.paid.toLocaleString()}`}
+                    colorClass="text-green-500"
+                    iconBgClass="bg-green-500/10"
+                />
+                <StatCard
+                    icon={AlertCircle}
+                    label="Pending Amount"
+                    value={`₹${stats.pending.toLocaleString()}`}
+                    colorClass="text-yellow-500"
+                    iconBgClass="bg-yellow-500/10"
+                />
+                <StatCard
+                    icon={Users}
+                    label="Total Customers"
+                    value={stats.customers}
+                    colorClass="text-blue-500"
+                    iconBgClass="bg-blue-500/10"
+                />
+            </div>
+
+            {/* Main Content Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Left Column (Sidebar) */}
                 <div className="space-y-6">
-                    {/* Bios */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Contact Information</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="flex items-center gap-2">
-                                <Mail className="h-4 w-4 text-muted-foreground" />
-                                <span>{dealer.email}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Phone className="h-4 w-4 text-muted-foreground" />
-                                <span>{dealer.phone}</span>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Stats Cards */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <Card>
-                            <CardContent className="p-4 pt-4">
-                                <p className="text-sm text-muted-foreground">Total Generated</p>
-                                <h3 className="text-2xl font-bold">₹{totalEarned.toLocaleString()}</h3>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardContent className="p-4 pt-4">
-                                <p className="text-sm text-muted-foreground">Pending Collection</p>
-                                <h3 className="text-2xl font-bold text-destructive">₹{pendingAmount.toLocaleString()}</h3>
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    {/* Business Info */}
-                    <Card>
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-base">Business Information</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Unique ID</span>
-                                <span className="font-medium">{dealer.uniqueId || 'N/A'}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Contact Person</span>
-                                <span className="font-medium">{dealer.contactPerson || 'N/A'}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">PAN Number</span>
-                                <span className="font-medium">{dealer.pan || 'N/A'}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Address</span>
-                                <span className="font-medium max-w-[200px] text-right">{dealer.address || 'N/A'}</span>
-                            </div>
-                        </CardContent>
+                    {/* Placeholder for Left Column */}
+                    {/* Personal Details */}
+                    <Card className="bg-[#1c1917] border-white/5 overflow-hidden">
+                        <div className="p-4 border-b border-white/5 flex items-center gap-2">
+                            <UserIcon className="h-5 w-5 text-red-500" />
+                            <h3 className="font-bold text-white">Personal Details</h3>
+                        </div>
+                        <div className="p-4 space-y-4">
+                            <DetailItem icon={Calendar} label="Date of Birth" value={dealer.dob || 'Not Provided'} />
+                            <DetailItem icon={Building} label="Broker License #" value={dealer.license || 'BL-CA-99821'} />
+                            <DetailItem icon={FileText} label="Tax ID (Last 4)" value={dealer.pan ? `***-**-${dealer.pan.slice(-4)}` : 'Not Provided'} />
+                            <DetailItem icon={Mail} label="Email Address" value={dealer.email} subValue="Optional. Defaults to Unknown@email.com if left blank." />
+                            <DetailItem icon={Phone} label="Phone Number" value={dealer.phone} />
+                            <DetailItem icon={MapPin} label="Address" value={dealer.address} subValue="4500 Wilshire Blvd, Suite 200, Los Angeles, CA 90010" />
+                        </div>
                     </Card>
 
                     {/* Documents */}
-                    <div className="space-y-4">
-                        <h3 className="font-semibold text-lg">Documents</h3>
-                        <div className="grid grid-cols-4 gap-2">
-                            {dealer.logo && (
-                                <div className="aspect-square rounded bg-muted overflow-hidden relative group cursor-pointer" onClick={() => handleViewImage(dealer.logo, "Logo")}>
-                                    <img src={dealer.logo} alt="Logo" className="w-full h-full object-cover" />
-                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-bold">Logo</div>
-                                </div>
-                            )}
-                            {dealer.proof && (
-                                <div className="aspect-square rounded bg-muted overflow-hidden relative group cursor-pointer" onClick={() => handleViewImage(dealer.proof, "Proof")}>
-                                    <img src={dealer.proof} alt="Proof" className="w-full h-full object-cover" />
-                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-bold">Proof</div>
-                                </div>
-                            )}
-                            {dealer.altProof && (
-                                <div className="aspect-square rounded bg-muted overflow-hidden relative group cursor-pointer" onClick={() => handleViewImage(dealer.altProof, "Alt Proof")}>
-                                    <img src={dealer.altProof} alt="Alt Proof" className="w-full h-full object-cover" />
-                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-bold">Alt Proof</div>
-                                </div>
-                            )}
-                            {dealer.shopAct && (
-                                <div className="aspect-square rounded bg-muted overflow-hidden relative group cursor-pointer" onClick={() => handleViewImage(dealer.shopAct, "Shop Act")}>
-                                    <img src={dealer.shopAct} alt="Shop Act" className="w-full h-full object-cover" />
-                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-bold">Shop Act</div>
-                                </div>
-                            )}
-                            {dealer.panImage && (
-                                <div className="aspect-square rounded bg-muted overflow-hidden relative group cursor-pointer" onClick={() => handleViewImage(dealer.panImage, "PAN Image")}>
-                                    <img src={dealer.panImage} alt="PAN" className="w-full h-full object-cover" />
-                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-bold">PAN</div>
-                                </div>
-                            )}
+                    <Card className="bg-[#1c1917] border-white/5 overflow-hidden">
+                        <div className="p-4 border-b border-white/5 flex items-center gap-2">
+                            <Folder className="h-5 w-5 text-red-500" />
+                            <h3 className="font-bold text-white">Documents</h3>
                         </div>
-                    </div>
+                        <div className="p-4 grid grid-cols-2 gap-3">
+                            {[
+                                { img: dealer.proof || dealer.idFront, label: 'ID Front' },
+                                { img: dealer.altProof || dealer.idBack, label: 'ID Back' },
+                                { img: dealer.panImage, label: 'Tax Document' },
+                                { img: dealer.shopAct, label: 'Other Doc' }
+                            ].map((doc, i) => (
+                                doc.img ? (
+                                    <div key={i} className="group relative aspect-video bg-black/40 rounded-lg overflow-hidden border border-white/5 cursor-pointer">
+                                        <img src={doc.img} alt={doc.label} className="h-full w-full object-cover opacity-75 group-hover:opacity-100 transition-opacity" />
+                                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/60">
+                                            <span className="text-xs text-white font-medium">{doc.label}</span>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div key={i} className="aspect-video bg-white/5 rounded-lg flex flex-col items-center justify-center text-gray-600 border border-white/5 border-dashed">
+                                        <FileText className="h-5 w-5 mb-1 opacity-50" />
+                                        <span className="text-[10px]">{doc.label}</span>
+                                    </div>
+                                )
+                            ))}
+                        </div>
+                    </Card>
                 </div>
 
-                <div className="space-y-6">
-                    {/* Transactions History */}
+                {/* Right Column (Main) */}
+                <div className="lg:col-span-2 space-y-8">
+                    {/* Brokered Vehicles */}
                     <div>
-                        <h3 className="font-semibold text-lg mb-3">Transaction History</h3>
-                        <div className="space-y-3">
-                            {dealerTransactions.length > 0 ? (
-                                dealerTransactions.map(transaction => {
-                                    const car = cars.find(c => c.id === transaction.carId)
-                                    return (
-                                        <Card key={transaction.id} className="overflow-hidden">
-                                            <CardContent className="p-4">
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <Car className="h-4 w-4 text-muted-foreground" />
-                                                        <span className="font-medium">{car ? `${car.make} ${car.model}` : 'Unknown Car'}</span>
-                                                    </div>
-                                                    <span className={`text-sm font-semibold ${transaction.status === 'Active' ? 'text-green-600' : 'text-gray-600'}`}>
-                                                        {transaction.status}
-                                                    </span>
-                                                </div>
-
-                                                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
-                                                    <Calendar className="h-4 w-4" />
-                                                    {new Date(transaction.startDate).toLocaleString()} - {new Date(transaction.endDate).toLocaleString()}
-                                                </div>
-
-                                                <div className="flex justify-between items-center pt-2 border-t">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-sm font-medium">₹{transaction.total}</span>
-                                                        {(Number(transaction.amountPaid) > 0 && transaction.paymentStatus !== 'Paid') && (
-                                                            <span className="text-xs text-muted-foreground">
-                                                                (Paid: ₹{transaction.amountPaid})
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={`text-xs px-2 py-1 rounded-full ${transaction.paymentStatus === 'Paid' ? 'bg-green-100 text-green-800' :
-                                                            transaction.paymentStatus === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                                'bg-red-100 text-red-800'
-                                                            }`}>
-                                                            {transaction.paymentStatus || 'Pending'}
-                                                        </span>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-6 w-6"
-                                                            onClick={() => setEditingTransaction(transaction)}
-                                                        >
-                                                            <Edit className="h-3 w-3" />
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    )
-                                })
-                            ) : (
-                                <p className="text-sm text-muted-foreground">No transactions found.</p>
-                            )}
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                <Car className="h-5 w-5 text-red-500" />
+                                Brokered Vehicles
+                            </h3>
+                            <div className="flex gap-2">
+                                <Button size="icon" variant="outline" className="h-8 w-8 border-white/10"><ArrowLeft className="h-4 w-4" /></Button>
+                                <Button size="icon" variant="outline" className="h-8 w-8 border-white/10"><ArrowLeft className="h-4 w-4 rotate-180" /></Button>
+                            </div>
                         </div>
-                    </div>
-
-                    {/* Associated Customers */}
-                    <div>
-                        <h3 className="font-semibold text-lg mb-3">Associated Customers</h3>
-                        <div className="space-y-3">
-                            {dealerCustomers.length > 0 ? (
-                                dealerCustomers.map(customer => (
-                                    <Card key={customer.id}>
-                                        <CardContent className="p-4">
-                                            <h4 className="font-medium mb-1">{customer.name}</h4>
-                                            <div className="space-y-1">
-                                                <div className="flex items-center text-sm text-muted-foreground">
-                                                    <Mail className="mr-2 h-4 w-4" />
-                                                    {customer.email}
-                                                </div>
-                                                <div className="flex items-center text-sm text-muted-foreground">
-                                                    <Phone className="mr-2 h-4 w-4" />
-                                                    {customer.phone}
+                        {/* Mock Carousel for now - displaying first 3 unique cars */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {[...new Set(dealerTransactions.map(t => t.carId))]
+                                .slice(0, 3)
+                                .map(carId => {
+                                    const car = cars.find(c => c.id === carId)
+                                    if (!car) return null
+                                    return (
+                                        <div key={carId} className="aspect-[4/3] relative rounded-xl overflow-hidden group">
+                                            <img src={car.image} className="h-full w-full object-cover" />
+                                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 to-transparent flex flex-col justify-end p-4">
+                                                <Badge className="bg-green-500/20 text-green-500 border-green-500/20 w-fit mb-2 text-[10px]">
+                                                    AVAILABLE
+                                                </Badge>
+                                                <h4 className="font-bold text-white text-sm">{car.make} {car.model}</h4>
+                                                <div className="flex justify-between items-center mt-1">
+                                                    <p className="text-xs text-gray-400">Rate</p>
+                                                    <p className="font-bold text-white text-sm">₹{car.pricePerDay}<span className="text-[10px] font-normal text-gray-400">/day</span></p>
                                                 </div>
                                             </div>
-                                        </CardContent>
-                                    </Card>
-                                ))
-                            ) : (
-                                <p className="text-sm text-muted-foreground">No associated customers.</p>
+                                        </div>
+                                    )
+                                })
+                            }
+                            {dealerTransactions.length === 0 && (
+                                <p className="col-span-3 text-gray-500 text-sm">No vehicles brokered yet.</p>
                             )}
                         </div>
                     </div>
-                </div>
-            </div>
 
-            <EditTransactionDrawer
+                    {/* Grid for Customers and Transactions */}
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                        {/* Associated Customers */}
+                        <Card className="bg-[#1c1917] border-white/5 h-full">
+                            <div className="p-6 border-b border-white/5 flex flex-col sm:flex-row justify-between items-center gap-4">
+                                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                    <Users className="h-5 w-5 text-red-500" />
+                                    Customers
+                                </h3>
+                                <div className="relative w-full sm:w-auto">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                                    <Input
+                                        placeholder="Search..."
+                                        className="bg-[#292524] border-white/10 pl-9 h-9 text-xs text-white w-full sm:w-40"
+                                    />
+                                </div>
+                            </div>
+                            <div className="p-0 overflow-x-auto">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="text-xs text-gray-500 uppercase bg-[#292524] border-b border-white/5">
+                                        <tr>
+                                            <th className="px-4 py-3 font-medium">Customer</th>
+                                            <th className="px-4 py-3 font-medium text-center">Status</th>
+                                            <th className="px-4 py-3 font-medium text-right">More</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {customers.filter(c => dealerTransactions.some(t => t.customerId === c.id))
+                                            .slice((customerPage - 1) * 5, customerPage * 5)
+                                            .map(cust => (
+                                                <tr key={cust.id} className="hover:bg-white/5 transition-colors">
+                                                    <td className="px-4 py-3 font-medium text-white flex items-center gap-3">
+                                                        <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
+                                                            {cust.name[0]}
+                                                        </div>
+                                                        <div className="truncate max-w-[100px]">{cust.name}</div>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <Badge className="bg-green-500/10 text-green-500 border-green-500/20 text-[10px]">ACTIVE</Badge>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right">
+                                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-white/10">
+                                                            <MoreHorizontal className="h-4 w-4 text-gray-400" />
+                                                        </Button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {/* Pagination (Simplified) */}
+                            <div className="p-4 border-t border-white/5 flex justify-end gap-2">
+                                <Button
+                                    size="sm" variant="outline"
+                                    disabled={customerPage === 1}
+                                    onClick={() => setCustomerPage(p => p - 1)}
+                                    className="h-8 border-white/10 text-white"
+                                >
+                                    Prev
+                                </Button>
+                                <Button
+                                    size="sm" variant="outline"
+                                    onClick={() => setCustomerPage(p => p + 1)}
+                                    className="h-8 border-white/10 text-white"
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                        </Card>
+
+                        {/* Transaction History */}
+                        <Card className="bg-[#1c1917] border-white/5 h-full">
+                            <div className="p-6 border-b border-white/5 flex items-center gap-2">
+                                <FileText className="h-5 w-5 text-red-500" />
+                                <h3 className="font-bold text-white">History</h3>
+                            </div>
+                            <div className="p-0 overflow-x-auto">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="text-xs text-gray-500 uppercase bg-[#292524] border-b border-white/5">
+                                        <tr>
+                                            <th className="px-4 py-3 font-medium">Vehicle</th>
+                                            <th className="px-4 py-3 font-medium">Amount</th>
+                                            <th className="px-4 py-3 font-medium text-center">Status</th>
+                                            <th className="px-4 py-3 font-medium text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {dealerTransactions
+                                            .slice((transactionPage - 1) * ITEMS_PER_PAGE, transactionPage * ITEMS_PER_PAGE)
+                                            .map(t => {
+                                                const car = cars.find(c => c.id === t.carId)
+                                                return (
+                                                    <tr key={t.id} className="hover:bg-white/5 transition-colors">
+                                                        <td className="px-4 py-3 font-medium text-white">
+                                                            <div className="truncate max-w-[120px]">{car ? `${car.make} ${car.model}` : 'Unknown'}</div>
+                                                            <div className="text-[10px] text-gray-500">{new Date(t.startDate).toLocaleDateString()}</div>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-white font-bold">₹{Number(t.total).toLocaleString()}</td>
+                                                        <td className="px-4 py-3 text-center">
+                                                            <Badge className={cn(
+                                                                "text-[10px]",
+                                                                t.paymentStatus === 'Paid' ? "bg-green-500/10 text-green-500" :
+                                                                    t.paymentStatus === 'Pending' ? "bg-yellow-500/10 text-yellow-500" : "bg-red-500/10 text-red-500"
+                                                            )}>
+                                                                {t.paymentStatus || 'Pending'}
+                                                            </Badge>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-8 w-8 p-0 hover:bg-white/10"
+                                                                onClick={() => setEditingTransaction(t)}
+                                                            >
+                                                                <MoreHorizontal className="h-4 w-4 text-gray-400" />
+                                                            </Button>
+                                                        </td>
+                                                    </tr>
+                                                )
+                                            })
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                            {/* Pagination (Simplified) */}
+                            <div className="p-4 border-t border-white/5 flex justify-end gap-2">
+                                <Button
+                                    size="sm" variant="outline"
+                                    disabled={transactionPage === 1}
+                                    onClick={() => setTransactionPage(p => p - 1)}
+                                    className="h-8 border-white/10 text-white"
+                                >
+                                    Prev
+                                </Button>
+                                <Button
+                                    size="sm" variant="outline"
+                                    onClick={() => setTransactionPage(p => p + 1)}
+                                    className="h-8 border-white/10 text-white"
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                        </Card>
+                    </div>
+                </div>
+            </div >
+
+            <EditTransactionModal
                 isOpen={!!editingTransaction}
                 onClose={() => setEditingTransaction(null)}
                 transaction={editingTransaction}
             />
-        </div>
+        </div >
     )
 }

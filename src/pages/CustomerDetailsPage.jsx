@@ -1,346 +1,708 @@
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useDriveway } from '../context/DrivewayContext'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
-import { Mail, Phone, Calendar, Car, Edit, ArrowLeft, User, ExternalLink, Store, X } from 'lucide-react'
-import { EditTransactionDrawer } from '../components/EditTransactionDrawer'
+import { Input } from '../components/ui/Input'
+import { Dialog, DialogHeader, DialogTitle } from '../components/ui/Dialog'
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "../components/ui/Table"
+    Mail, Phone, Calendar, Car, Edit, ArrowLeft, User, ExternalLink, Store,
+    CreditCard, CheckCircle, AlertCircle, Clock, FileText, Download, ChevronRight,
+    TrendingUp, MapPin, Gauge, MoreHorizontal, Plus, ShieldCheck
+} from 'lucide-react'
+import { EditCustomerModal } from '../components/EditCustomerModal'
+import { EditTransactionModal } from '../components/EditTransactionModal'
+import { cn } from '../lib/utils'
+
+function StatWidget({ title, value, icon: Icon, trend, colorClass }) {
+    return (
+        <Card className="bg-[#1c1917] border-white/5 relative overflow-hidden">
+            <CardContent className="p-6">
+                <div className="flex justify-between items-start">
+                    <div>
+                        <p className="text-sm text-gray-400 font-medium mb-1">{title}</p>
+                        <h3 className={cn("text-3xl font-bold", colorClass)}>{value}</h3>
+                    </div>
+                    {Icon && <Icon className="h-8 w-8 text-gray-600/50 absolute right-4 top-4" />}
+                </div>
+                {trend && (
+                    <div className="flex items-center gap-1 mt-2 text-xs">
+                        <TrendingUp className="h-3 w-3 text-green-500" />
+                        <span className="text-green-500 font-medium">{trend}</span>
+                    </div>
+                )}
+                {/* Progress Bar Mock */}
+                <div className="h-1 w-full bg-white/5 mt-4 rounded-full overflow-hidden">
+                    <div className={cn("h-full w-1/2 rounded-full", colorClass.replace('text-', 'bg-'))} />
+                </div>
+            </CardContent>
+        </Card>
+    )
+}
+
+function RentalCard({ rental, car, onExtend, onReturn }) {
+    if (!rental || !car) return (
+        <Card className="bg-[#1c1917] border-white/5 dashed border-2 flex items-center justify-center h-[200px]">
+            <p className="text-gray-500 text-sm">No Active Rental</p>
+        </Card>
+    )
+
+    return (
+        <Card className="bg-[#1c1917] border-white/5 overflow-hidden group">
+            <div className="h-full flex flex-col md:flex-row">
+                {/* Image Side */}
+                <div className="w-full md:w-2/5 relative h-48 md:h-auto">
+                    <img
+                        src={car.image}
+                        alt={`${car.make} ${car.model}`}
+                        className="w-full h-full object-cover"
+                    />
+                    <div className="absolute top-3 right-3 bg-green-500 text-black text-[10px] font-bold px-2 py-1 rounded uppercase">
+                        On Road
+                    </div>
+                </div>
+                {/* Info Side */}
+                <div className="p-6 flex-1 flex flex-col justify-between">
+                    <div>
+                        <div className="flex justify-between items-start mb-2">
+                            <div>
+                                <h3 className="text-xl font-bold text-white">{car.make} {car.model}</h3>
+                                <p className="text-sm text-gray-400">{car.year} • {car.fuelType}</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-y-4 gap-x-8 mt-4">
+                            <div>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wider">License Plate</p>
+                                <p className="text-sm font-medium text-white">{car.plateNumber}</p>
+                            </div>
+                            <div>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wider">Daily Rate</p>
+                                <p className="text-sm font-medium text-white">₹{rental.dailyRate || car.price}</p>
+                            </div>
+                            <div>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wider">Pick-Up</p>
+                                <p className="text-sm font-medium text-white">{new Date(rental.startDate).toLocaleDateString()}</p>
+                            </div>
+                            <div>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wider">Return Due</p>
+                                <p className="text-sm font-medium text-red-400">{new Date(rental.endDate).toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3 mt-6">
+                        <Button
+                            onClick={onExtend}
+                            className="flex-1 bg-white/5 hover:bg-white/10 text-white border-0"
+                        >
+                            Extend
+                        </Button>
+                        <Button
+                            onClick={onReturn}
+                            className="flex-1 bg-red-600 hover:bg-red-700 text-white border-0"
+                        >
+                            Return Car
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </Card>
+    )
+}
+
+function DealerCard({ dealer }) {
+    if (!dealer) return (
+        <Card className="bg-[#1c1917] border-white/5 h-full flex flex-col justify-center items-center p-6 text-center">
+            <Store className="h-10 w-10 text-gray-600 mb-2" />
+            <h3 className="text-white font-medium">No Assigned Dealer</h3>
+            <p className="text-sm text-gray-500">This customer is not linked to a dealer.</p>
+        </Card>
+    )
+
+    return (
+        <Card className="bg-[#1c1917] border-white/5 h-full">
+            <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-red-500 flex items-center gap-2">
+                    <Store className="h-4 w-4" /> Assigned Dealer
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-full bg-[#292524] flex items-center justify-center border border-white/10">
+                        {/* Dealer Avatar Placeholder */}
+                        <span className="text-lg font-bold text-gray-400">{dealer.name.charAt(0)}</span>
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold text-white">{dealer.name}</h3>
+                        <p className="text-xs text-gray-400">Senior Sales Manager</p>
+                    </div>
+                </div>
+
+                <div className="space-y-3">
+                    <div className="flex justify-between text-sm py-2 border-b border-white/5">
+                        <span className="text-gray-500">Contact</span>
+                        <span className="text-gray-300">{dealer.phone}</span>
+                    </div>
+                    <div className="flex justify-between text-sm py-2 border-b border-white/5">
+                        <span className="text-gray-500">Email</span>
+                        <span className="text-gray-300">{dealer.email}</span>
+                    </div>
+                    <div className="flex justify-between text-sm py-2 border-b border-white/5">
+                        <span className="text-gray-500">Deals Closed</span>
+                        <span className="text-white font-bold">142</span>
+                    </div>
+                </div>
+
+                <Button className="w-full bg-[#292524] hover:bg-[#3f3a38] text-white border border-white/5">
+                    <Mail className="mr-2 h-4 w-4" /> Contact Dealer
+                </Button>
+            </CardContent>
+        </Card>
+    )
+}
+
+function DocumentRow({ title, date, size, type }) {
+    return (
+        <div className="flex items-center justify-between p-3 bg-[#292524]/50 rounded-lg border border-white/5 hover:bg-[#292524] transition-colors group">
+            <div className="flex items-center gap-3">
+                <div className={cn("p-2 rounded bg-white/5 text-gray-400", type === 'pdf' ? 'text-red-400' : 'text-blue-400')}>
+                    <FileText className="h-5 w-5" />
+                </div>
+                <div>
+                    <p className="text-sm font-medium text-white group-hover:text-red-400 transition-colors">{title}</p>
+                    <p className="text-[10px] text-gray-500">{size} • {date}</p>
+                </div>
+            </div>
+            <Button size="icon" variant="ghost" className="text-gray-500 hover:text-white">
+                <Download className="h-4 w-4" />
+            </Button>
+        </div>
+    )
+}
 
 export function CustomerDetailsPage() {
     const { id } = useParams()
     const navigate = useNavigate()
-    const { customers, transactions, dealers, cars } = useDriveway()
-    const [customer, setCustomer] = useState(null)
+    const { customers, transactions, dealers, cars, updateTransaction, updateCar } = useDriveway()
+
+    // State
+    const [activeTab, setActiveTab] = useState('transactions')
+    const [smartPaymentOpen, setSmartPaymentOpen] = useState(false)
+    const [paymentAmount, setPaymentAmount] = useState('')
+
     const [editingTransaction, setEditingTransaction] = useState(null)
-    const [expandedImage, setExpandedImage] = useState(null)
+    const [rentalPage, setRentalPage] = useState(1)
+    const [editingCustomer, setEditingCustomer] = useState(null)
 
-    useEffect(() => {
-        const foundCustomer = customers.find(c => c.id === id)
-        if (foundCustomer) {
-            setCustomer(foundCustomer)
-        }
-    }, [id, customers])
+    // Extend Modal State
+    const [extendModalOpen, setExtendModalOpen] = useState(false)
+    const [extensionDate, setExtensionDate] = useState('')
 
-    if (!customer) {
-        return <div className="p-8">Loading...</div>
-    }
+    // Data Resolution
+    const customer = customers.find(c => c.id === id)
 
-    // Find all transactions for this customer
-    const customerTransactions = transactions.filter(t => t.customerId === customer.id)
+    // Derived Data
+    const customerTransactions = useMemo(() =>
+        transactions.filter(t => t.customerId === id).sort((a, b) => new Date(b.startDate) - new Date(a.startDate)),
+        [transactions, id]
+    )
 
-    // Create Ledger (Flatten Rentals and Payments)
-    const ledger = customerTransactions.flatMap(t => {
-        const car = cars.find(c => c.id === t.carId)
-        const carName = car ? `${car.make} ${car.model}` : 'Unknown Car'
-        const entries = []
+    const activeRentalTrans = customerTransactions.find(t => {
+        const now = new Date()
+        return new Date(t.startDate) <= now && new Date(t.endDate) >= now && t.status !== 'Cancelled' && t.status !== 'Completed'
+    })
+    const activeRentalCar = activeRentalTrans ? cars.find(c => c.id === activeRentalTrans.carId) : null
+    const dealer = dealers.find(d => d.id === customer?.dealerId)
 
-        // 1. Debit Entry (The Rental Cost)
-        entries.push({
-            id: t.id,
-            uniqueId: t.id, // For display
-            date: t.startDate,
-            description: carName,
-            type: 'Debit',
-            status: t.status, // Rental Status
-            amount: Number(t.total) || 0,
-            originalTransaction: t, // Keep reference for edit
-            isRental: true
+    // Rental History Pagination
+    const RENTALS_PER_PAGE = 5
+    const rentalHistoryTotalPages = Math.ceil(customerTransactions.length / RENTALS_PER_PAGE)
+    const paginatedRentalHistory = useMemo(() =>
+        customerTransactions.slice((rentalPage - 1) * RENTALS_PER_PAGE, rentalPage * RENTALS_PER_PAGE),
+        [customerTransactions, rentalPage]
+    )
+
+    // Financials
+    const totalSpent = customerTransactions.reduce((sum, t) => sum + (Number(t.total) || 0), 0)
+    const totalPaid = customerTransactions.reduce((sum, t) => sum + (Number(t.amountPaid) || 0), 0)
+    const pendingAmount = Math.max(0, totalSpent - totalPaid)
+
+    // Actions
+    const handleReturnCar = () => {
+        if (!activeRentalTrans || !activeRentalCar) return
+        if (!confirm('Are you sure you want to mark this car as returned?')) return
+
+        const now = new Date().toISOString()
+
+        // 1. Update Transaction
+        updateTransaction(activeRentalTrans.id, {
+            ...activeRentalTrans,
+            endDate: now,
+            status: 'Completed'
         })
 
-        // 2. Credit Entries (Payments)
-        if (t.payments && t.payments.length > 0) {
-            t.payments.forEach(p => {
-                entries.push({
-                    id: p.id,
-                    uniqueId: p.id,
-                    date: p.date,
-                    description: `Payment for ${carName}`,
-                    type: p.type, // 'Credit'
-                    status: 'Paid',
-                    amount: Number(p.amount) || 0,
-                    originalTransaction: t, // Keep reference for edit
-                    isRental: false
-                })
-            })
-        } else if (Number(t.amountPaid) > 0) {
-            // Legacy/Migration
-            entries.push({
-                id: `${t.id}_payment`,
-                uniqueId: 'Legacy',
-                date: t.startDate,
-                description: `Payment for ${carName}`,
-                type: 'Credit',
-                status: 'Paid',
-                amount: Number(t.amountPaid),
-                originalTransaction: t, // Keep reference for edit
-                isRental: false
-            })
+        // 2. Update Car Status
+        updateCar(activeRentalCar.id, {
+            ...activeRentalCar,
+            status: 'Available'
+        })
+    }
+
+    const handleExtendRental = () => {
+        if (!activeRentalTrans) return
+        // Pre-fill with current end date
+        setExtensionDate(activeRentalTrans.endDate.split('T')[0])
+        setExtendModalOpen(true)
+    }
+
+    const saveExtension = () => {
+        if (!extensionDate) return
+
+        // Logic to update price could go here (e.g. dailyRate * days)
+        // For now, just extending the date as requested
+        updateTransaction(activeRentalTrans.id, {
+            ...activeRentalTrans,
+            endDate: new Date(extensionDate).toISOString()
+        })
+
+        setExtendModalOpen(false)
+    }
+
+    // Smart Payment Logic
+    const handleSmartPayment = () => {
+        const amountToPay = Number(paymentAmount)
+        if (!amountToPay || amountToPay <= 0) {
+            alert("Please enter a valid amount")
+            return
         }
 
-        return entries
-    }).sort((a, b) => new Date(b.date) - new Date(a.date))
+        if (amountToPay > pendingAmount) {
+            alert(`Amount exceeds total pending balance of ₹${pendingAmount}`)
+            return
+        }
 
-    // Calculate Stats
-    const totalSpent = customerTransactions.reduce((sum, t) => sum + (Number(t.total) || 0), 0)
-    const pendingAmount = customerTransactions
-        .filter(t => t.paymentStatus !== 'Paid')
-        .reduce((sum, t) => sum + Math.max(0, (Number(t.total) || 0) - (Number(t.amountPaid) || 0)), 0)
+        let remainingPayment = amountToPay
 
-    // Get unique dealer IDs for existing functionality
-    const dealerIds = [...new Set(customerTransactions.map(t => t.dealerId).filter(id => id))]
-    const customerDealers = dealers.filter(d => dealerIds.includes(d.id))
+        // Get unpaid transactions sorted by oldest first
+        const unpaidTransactions = customerTransactions
+            .filter(t => (Number(t.total) || 0) > (Number(t.amountPaid) || 0))
+            .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
+
+        unpaidTransactions.forEach(t => {
+            if (remainingPayment <= 0) return
+
+            const tTotal = Number(t.total) || 0
+            const tPaid = Number(t.amountPaid) || 0
+            const tPending = tTotal - tPaid
+
+            const paymentForThis = Math.min(tPending, remainingPayment)
+
+            // Update Context
+            updateTransaction(t.id, {
+                ...t,
+                amountPaid: tPaid + paymentForThis,
+                paymentStatus: (tPaid + paymentForThis) >= tTotal ? 'Paid' : 'Partial'
+            })
+
+            remainingPayment -= paymentForThis
+        })
+
+        setSmartPaymentOpen(false)
+        setPaymentAmount('')
+        alert(`Successfully paid ₹${amountToPay} across oldest dues!`)
+    }
+
+
+    if (!customer) return <div className="p-8 text-white">Loading...</div>
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-8 animate-in fade-in duration-300">
+            {/* Header */}
             <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" onClick={() => navigate('/customers')}>
-                    <ArrowLeft className="h-5 w-5" />
+                <Button variant="ghost" className="text-gray-400 hover:text-white" onClick={() => navigate('/customers')}>
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Back
                 </Button>
-                <div className="flex items-center gap-4">
-                    <div
-                        className={`h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden border-2 border-white shadow-sm ${customer.image ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
-                        onClick={() => customer.image && setExpandedImage(customer.image)}
+            </div>
+
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Customer Profile</h1>
+                    <p className="text-gray-400">Manage customer details, active rentals, and history.</p>
+                </div>
+                <div className="flex gap-3">
+                    <Button variant="outline" className="border-white/10 text-gray-300 hover:bg-white/5">
+                        <Clock className="mr-2 h-4 w-4" /> Log Activity
+                    </Button>
+                    <Button
+                        onClick={() => setEditingCustomer(customer)}
+                        className="bg-red-600 hover:bg-red-700 text-white border-0"
                     >
-                        {customer.image ? (
-                            <img src={customer.image} alt={customer.name} className="h-full w-full object-cover" />
-                        ) : (
-                            <User className="h-6 w-6 text-primary" />
+                        <Edit className="mr-2 h-4 w-4" /> Edit Profile
+                    </Button>
+                </div>
+            </div>
+
+            {/* Top Row: Profile & Stats */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                {/* Profile Card */}
+                <Card className="lg:col-span-2 bg-[#1c1917] border-white/5 relative overflow-hidden">
+                    <CardContent className="p-0 flex flex-col md:flex-row">
+                        <div className="p-6 md:p-8 flex-1">
+                            <div className="flex flex-col md:flex-row gap-6 items-start">
+                                <div className="h-24 w-24 rounded-xl overflow-hidden border-2 border-white/10 shrink-0 bg-[#292524]">
+                                    {customer.image ?
+                                        <img src={customer.image} className="w-full h-full object-cover" /> :
+                                        <User className="w-full h-full p-6 text-gray-500" />
+                                    }
+                                </div>
+                                <div className="space-y-1">
+                                    <div className="flex items-center gap-3">
+                                        <h2 className="text-2xl font-bold text-white">{customer.name}</h2>
+                                        <span className="bg-yellow-500/20 text-yellow-500 text-[10px] font-bold px-2 py-0.5 rounded uppercase border border-yellow-500/20">
+                                            {customer.status || 'Gold Member'}
+                                        </span>
+                                    </div>
+                                    <p className="text-sm text-gray-500 font-mono">ID: #{customer.uniqueId || '8821'}</p>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 mt-4 text-sm text-gray-400">
+                                        <div className="flex items-center gap-2">
+                                            <Phone className="h-3 w-3" /> {customer.phone}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Calendar className="h-3 w-3" /> Joined: {new Date(customer.createdAt || '2023-01-01').toLocaleDateString()}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Mail className="h-3 w-3" /> {customer.email}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <MapPin className="h-3 w-3" /> {customer.address?.slice(0, 25) || 'No Address'}...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {/* Decorative BG Icon */}
+                        <div className="hidden md:flex items-center justify-center p-8 bg-white/5 w-48">
+                            <User className="h-24 w-24 text-white/5" />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Financial Stats */}
+                <div className="space-y-4">
+                    <div
+                        className="group cursor-pointer"
+                        onClick={() => setSmartPaymentOpen(true)}
+                    >
+                        <StatWidget
+                            title="Amount Pending"
+                            value={`₹${pendingAmount.toLocaleString()}`}
+                            icon={AlertCircle}
+                            colorClass="text-red-500"
+                            trend={pendingAmount > 0 ? "+15%" : null}
+                        />
+                        {/* Hover Hint */}
+                        <div className="text-center text-xs text-red-500 opacity-0 group-hover:opacity-100 transition-opacity mt-1">
+                            Click to Pay Off
+                        </div>
+                    </div>
+
+                    <StatWidget
+                        title="Total Paid"
+                        value={`₹${totalPaid.toLocaleString()}`}
+                        icon={CheckCircle}
+                        colorClass="text-green-500"
+                        trend="+2%"
+                    />
+                </div>
+            </div>
+
+            {/* Middle Row: Active Rental & Dealer */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-4">
+                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                        <Car className="h-4 w-4" /> Active Rental
+                    </h3>
+                    <RentalCard
+                        rental={activeRentalTrans}
+                        car={activeRentalCar}
+                        onExtend={handleExtendRental}
+                        onReturn={handleReturnCar}
+                    />
+                </div>
+                <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                        <Store className="h-4 w-4" /> Assigned Dealer
+                    </h3>
+                    <DealerCard dealer={dealer} />
+                </div>
+            </div>
+
+            {/* Bottom Row: Tabs */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                    <div className="flex items-center gap-6 border-b border-white/5 mb-6">
+                        {['Transactions', 'Rental History', 'Documents', 'Notes'].map(tab => (
+                            <button
+                                key={tab}
+                                onClick={() => setActiveTab(tab.toLowerCase())}
+                                className={cn(
+                                    "pb-3 text-sm font-medium transition-colors border-b-2",
+                                    activeTab === tab.toLowerCase()
+                                        ? "text-red-500 border-red-500"
+                                        : "text-gray-500 border-transparent hover:text-white"
+                                )}
+                            >
+                                {tab}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Tab Content */}
+                    <div className="bg-[#1c1917] border border-white/5 rounded-xl overflow-hidden min-h-[300px]">
+                        {activeTab.includes('transaction') && (
+                            <div className="divide-y divide-white/5">
+                                {/* Header */}
+                                <div className="grid grid-cols-5 bg-[#292524]/50 p-4 text-[10px] uppercase font-bold text-gray-500 tracking-wider">
+                                    <div>Date</div>
+                                    <div>Transaction ID</div>
+                                    <div>Status</div>
+                                    <div className="text-right">Amount</div>
+                                    <div></div>
+                                </div>
+                                {/* Rows */}
+                                {customerTransactions.map(t => (
+                                    <div key={t.id} className="grid grid-cols-5 p-4 items-center hover:bg-white/5 transition-colors">
+                                        <div className="text-sm text-gray-300">{new Date(t.startDate).toLocaleDateString()}</div>
+                                        <div className="text-sm text-gray-500 font-mono">#{t.id.slice(1, 8)}</div>
+                                        <div>
+                                            <span className={cn(
+                                                "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border",
+                                                t.paymentStatus === 'Paid' ? "bg-green-500/10 text-green-500 border-green-500/20" :
+                                                    t.paymentStatus === 'Partial' ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/20" :
+                                                        "bg-red-500/10 text-red-500 border-red-500/20"
+                                            )}>
+                                                {t.paymentStatus || 'Pending'}
+                                            </span>
+                                        </div>
+                                        <div className="text-sm font-bold text-white text-right">₹{t.total}</div>
+                                        <div className="text-right">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-6 w-6 text-gray-500 hover:text-white"
+                                                onClick={() => setEditingTransaction(t)}
+                                            >
+                                                <MoreHorizontal className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        {/* Other tabs placeholders */}
+                        {activeTab === 'rental history' && (
+                            <div>
+                                <div className="divide-y divide-white/5">
+                                    <div className="grid grid-cols-5 bg-[#292524]/50 p-4 text-[10px] uppercase font-bold text-gray-500 tracking-wider">
+                                        <div className="col-span-2">Vehicle</div>
+                                        <div>Dates</div>
+                                        <div>Status</div>
+                                        <div className="text-right">Total</div>
+                                    </div>
+                                    {paginatedRentalHistory.map(t => {
+                                        const car = cars.find(c => c.id === t.carId)
+                                        return (
+                                            <div key={t.id} className="grid grid-cols-5 p-4 items-center hover:bg-white/5 transition-colors">
+                                                <div className="col-span-2 flex items-center gap-3">
+                                                    <div className="h-10 w-16 bg-[#292524] rounded overflow-hidden border border-white/5">
+                                                        {car?.image ? <img src={car.image} className="w-full h-full object-cover" /> : <Car className="h-full w-full p-2 text-gray-600" />}
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-sm font-bold text-white">{car ? `${car.make} ${car.model}` : 'Unknown Car'}</div>
+                                                        <div className="text-xs text-gray-500 font-mono">{car?.plateNumber}</div>
+                                                    </div>
+                                                </div>
+                                                <div className="text-sm text-gray-400">
+                                                    <div className="text-white">{new Date(t.startDate).toLocaleDateString()}</div>
+                                                    <div className="text-xs">{new Date(t.endDate).toLocaleDateString()}</div>
+                                                </div>
+                                                <div>
+                                                    <span className={cn(
+                                                        "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border",
+                                                        t.status === 'Completed' ? "bg-green-500/10 text-green-500 border-green-500/20" :
+                                                            t.status === 'Active' ? "bg-blue-500/10 text-blue-500 border-blue-500/20" :
+                                                                "bg-gray-500/10 text-gray-500 border-gray-500/20"
+                                                    )}>
+                                                        {t.status}
+                                                    </span>
+                                                </div>
+                                                <div className="text-sm font-bold text-white text-right">₹{t.total}</div>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                                {/* Pagination */}
+                                {rentalHistoryTotalPages > 1 && (
+                                    <div className="flex justify-between items-center p-4 border-t border-white/5 bg-[#292524]/30">
+                                        <div className="text-xs text-gray-500">
+                                            Page {rentalPage} of {rentalHistoryTotalPages}
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setRentalPage(p => Math.max(1, p - 1))}
+                                                disabled={rentalPage === 1}
+                                                className="h-8 w-8 p-0 border-white/10 hover:bg-white/5 hover:text-white"
+                                            >
+                                                <ChevronRight className="h-4 w-4 rotate-180" />
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => setRentalPage(p => Math.min(rentalHistoryTotalPages, p + 1))}
+                                                disabled={rentalPage === rentalHistoryTotalPages}
+                                                className="h-8 w-8 p-0 border-white/10 hover:bg-white/5 hover:text-white"
+                                            >
+                                                <ChevronRight className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        {!activeTab.includes('transaction') && activeTab !== 'rental history' && (
+                            <div className="p-8 text-center text-gray-500 italic">
+                                Content for {activeTab} coming soon...
+                            </div>
                         )}
                     </div>
-                    <h1 className="text-3xl font-bold tracking-tight">{customer.name}</h1>
                 </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-6">
-                    {/* Bios */}
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Contact Information</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="flex items-center gap-2">
-                                <Mail className="h-4 w-4 text-muted-foreground" />
-                                <span>{customer.email}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Phone className="h-4 w-4 text-muted-foreground" />
-                                <span>{customer.phone}</span>
+                {/* Right Sidebar: Documents Widget */}
+                <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider">Documents</h3>
+                        <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-500">
+                            <Plus className="h-4 w-4" />
+                        </Button>
+                    </div>
+                    <Card className="bg-[#1c1917] border-white/5">
+                        <CardContent className="p-4 space-y-3">
+                            {/* Aadhaar Front */}
+                            <DocumentRow
+                                title="Aadhaar Front"
+                                date={customer.createdAt ? new Date(customer.createdAt).toLocaleDateString() : 'N/A'}
+                                size="1.2 MB"
+                                type="img"
+                            />
+                            {/* Aadhaar Back */}
+                            <DocumentRow
+                                title="Aadhaar Back"
+                                date={customer.createdAt ? new Date(customer.createdAt).toLocaleDateString() : 'N/A'}
+                                size="1.2 MB"
+                                type="img"
+                            />
+                            {/* DL / Other */}
+                            <DocumentRow
+                                title="DL/ Other Document"
+                                date={customer.createdAt ? new Date(customer.createdAt).toLocaleDateString() : 'N/A'}
+                                size="2.4 MB"
+                                type="pdf"
+                            />
+
+                            <div className="mt-4 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+                                <h4 className="text-sm font-bold text-red-500 flex items-center gap-2 mb-1">
+                                    <ShieldCheck className="h-4 w-4" /> Verification Pending
+                                </h4>
+                                <p className="text-xs text-red-400/80 mb-2">
+                                    Passport scan is required for international travel authorization.
+                                </p>
+                                <button className="text-xs font-bold text-red-500 hover:text-red-400 uppercase tracking-wider">
+                                    Request Document
+                                </button>
                             </div>
                         </CardContent>
                     </Card>
-
-                    {/* Stats Cards */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <Card>
-                            <CardContent className="p-4 pt-4">
-                                <p className="text-sm text-muted-foreground">Total Spent</p>
-                                <h3 className="text-2xl font-bold">₹{totalSpent.toLocaleString()}</h3>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardContent className="p-4 pt-4">
-                                <p className="text-sm text-muted-foreground">Pending Amount</p>
-                                <h3 className="text-2xl font-bold text-destructive">₹{pendingAmount.toLocaleString()}</h3>
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    {/* Personal Info */}
-                    <Card>
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-base">Personal Information</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Unique ID</span>
-                                <span className="font-medium">{customer.uniqueId || 'N/A'}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Date of Birth</span>
-                                <span className="font-medium">{customer.dob || 'N/A'}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Address</span>
-                                <span className="font-medium max-w-[200px] text-right">{customer.address || 'N/A'}</span>
-                            </div>
-                            {customer.dealerId && (
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Assigned Dealer</span>
-                                    <span className="font-medium flex items-center gap-1 justify-end">
-                                        <Store className="h-3 w-3" />
-                                        {dealers.find(d => d.id === customer.dealerId)?.name || 'Unknown'}
-                                    </span>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    {/* Documents */}
-                    <div className="space-y-4">
-                        <h3 className="font-semibold text-lg">Documents</h3>
-                        <div className="grid grid-cols-3 gap-2">
-                            {customer.dlImage && (
-                                <div className="aspect-video rounded bg-muted overflow-hidden relative group cursor-pointer" onClick={() => window.open(customer.dlImage)}>
-                                    <img src={customer.dlImage} alt="DL" className="w-full h-full object-cover" />
-                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-bold">View DL</div>
-                                </div>
-                            )}
-                            {customer.aadhaarFront && (
-                                <div className="aspect-video rounded bg-muted overflow-hidden relative group cursor-pointer" onClick={() => window.open(customer.aadhaarFront)}>
-                                    <img src={customer.aadhaarFront} alt="Aadhaar Front" className="w-full h-full object-cover" />
-                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-bold">Front</div>
-                                </div>
-                            )}
-                            {customer.aadhaarBack && (
-                                <div className="aspect-video rounded bg-muted overflow-hidden relative group cursor-pointer" onClick={() => window.open(customer.aadhaarBack)}>
-                                    <img src={customer.aadhaarBack} alt="Aadhaar Back" className="w-full h-full object-cover" />
-                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white text-xs font-bold">Back</div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                <div className="space-y-6">
-                    {/* Transactions History */}
-                    <div>
-                        <div className="flex justify-between items-center mb-3">
-                            <h3 className="font-semibold text-lg">Transaction History</h3>
-                        </div>
-                        <div className="rounded-md border bg-card">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="bg-muted/50">
-                                        <TableHead className="w-[85px] text-xs">Trans ID</TableHead>
-                                        <TableHead className="text-xs">Description</TableHead>
-                                        <TableHead className="w-[100px] text-xs">Status</TableHead>
-                                        <TableHead className="w-[90px] text-xs">Date</TableHead>
-                                        <TableHead className="text-right text-xs">Amount</TableHead>
-                                        <TableHead className="w-[40px]"></TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {ledger.length > 0 ? (
-                                        ledger.map((entry, idx) => (
-                                            <TableRow key={`${entry.id}-${idx}`} className="text-xs">
-                                                <TableCell className="font-mono text-[10px] text-muted-foreground align-top py-3">
-                                                    {entry.uniqueId === 'Legacy' ? '-' : entry.uniqueId.slice(0, 8)}
-                                                </TableCell>
-                                                <TableCell className="align-top py-3 font-medium">
-                                                    {entry.description}
-                                                    {entry.isRental && (
-                                                        <div className="text-[10px] text-muted-foreground mt-0.5 font-normal">
-                                                            {entry.originalTransaction?.endDate ? `Till ${entry.originalTransaction.endDate}` : 'Active'}
-                                                        </div>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell className="align-top py-3">
-                                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${entry.type === 'Credit'
-                                                        ? 'bg-green-100 text-green-800'
-                                                        : 'bg-red-100 text-red-800'
-                                                        }`}>
-                                                        {entry.type === 'Credit' ? 'Credit' : 'Debit'}
-                                                    </span>
-                                                </TableCell>
-                                                <TableCell className="align-top py-3">
-                                                    {new Date(entry.date).toLocaleString()}
-                                                </TableCell>
-                                                <TableCell className={`text-right font-medium align-top py-3 ${entry.type === 'Credit' ? 'text-green-600' : ''}`}>
-                                                    {entry.type === 'Credit' ? '+' : '-'}₹{entry.amount.toLocaleString()}
-                                                </TableCell>
-                                                <TableCell className="align-top py-3">
-                                                    {/* Only allow edit for parent transactions for now to simplify */}
-                                                    {entry.originalTransaction && (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-6 w-6"
-                                                            onClick={() => setEditingTransaction(entry.originalTransaction)}
-                                                        >
-                                                            <Edit className="h-3 w-3" />
-                                                        </Button>
-                                                    )}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
-                                    ) : (
-                                        <TableRow>
-                                            <TableCell colSpan={6} className="text-center text-xs text-muted-foreground py-4">
-                                                No financial records found
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </div>
-
-                    {/* Associated Dealers */}
-                    <div>
-                        <h3 className="font-semibold text-lg mb-3">Associated Dealers</h3>
-                        <div className="space-y-3">
-                            {customerDealers.length > 0 ? (
-                                customerDealers.map(dealer => (
-                                    <Card key={dealer.id}>
-                                        <CardContent className="p-4">
-                                            <h4 className="font-medium mb-1">{dealer.name}</h4>
-                                            <div className="space-y-1">
-                                                <div className="flex items-center text-sm text-muted-foreground">
-                                                    <Mail className="mr-2 h-4 w-4" />
-                                                    {dealer.email}
-                                                </div>
-                                                <div className="flex items-center text-sm text-muted-foreground">
-                                                    <Phone className="mr-2 h-4 w-4" />
-                                                    {dealer.phone}
-                                                </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                ))
-                            ) : (
-                                <p className="text-sm text-muted-foreground">No associated dealers.</p>
-                            )}
-                        </div>
-                    </div>
                 </div>
             </div>
 
-            <EditTransactionDrawer
+            {/* Smart Payment Modal */}
+            <Dialog isOpen={smartPaymentOpen} onClose={() => setSmartPaymentOpen(false)}>
+                <div className="space-y-4">
+                    <DialogHeader>
+                        <DialogTitle>Smart Payment</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm text-gray-400">
+                        Enter total amount to pay. This will systematically clear your oldest pending rentals first.
+                    </p>
+
+                    <div className="py-4">
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Total Pending Dues</p>
+                        <div className="text-3xl font-bold text-red-500 mb-6">₹{pendingAmount.toLocaleString()}</div>
+
+                        <label className="text-xs font-medium text-white mb-1.5 block">Payment Amount</label>
+                        <Input
+                            type="number"
+                            placeholder="Enter amount..."
+                            value={paymentAmount}
+                            onChange={e => setPaymentAmount(e.target.value)}
+                            className="bg-[#292524] border-white/10 text-xl font-bold text-white placeholder:text-gray-600 focus:ring-green-500"
+                        />
+                    </div>
+
+                    <Button
+                        onClick={handleSmartPayment}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white font-bold h-12"
+                    >
+                        Process Payment
+                    </Button>
+                </div>
+            </Dialog>
+
+            <Dialog isOpen={extendModalOpen} onClose={() => setExtendModalOpen(false)}>
+                <div className="space-y-4">
+                    <DialogHeader>
+                        <DialogTitle>Extend Rental</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm text-gray-400">
+                        Select a new return date for this rental.
+                    </p>
+
+                    <div className="py-4">
+                        <label className="text-xs font-medium text-white mb-1.5 block">New Return Date</label>
+                        <Input
+                            type="date"
+                            value={extensionDate}
+                            onChange={e => setExtensionDate(e.target.value)}
+                            className="bg-[#292524] border-white/10 text-white"
+                        />
+                    </div>
+
+                    <Button
+                        onClick={saveExtension}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-10"
+                    >
+                        Confirm Extension
+                    </Button>
+                </div>
+            </Dialog>
+
+            <EditCustomerModal
+                isOpen={!!editingCustomer}
+                onClose={() => setEditingCustomer(null)}
+                customer={editingCustomer}
+            />
+
+            <EditTransactionModal
                 isOpen={!!editingTransaction}
                 onClose={() => setEditingTransaction(null)}
                 transaction={editingTransaction}
             />
 
-            {/* Expanded Image Overlay */}
-            {expandedImage && (
-                <div
-                    className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 animate-in fade-in duration-200"
-                    onClick={() => setExpandedImage(null)}
-                >
-                    <div className="relative max-w-4xl max-h-[90vh]">
-                        <img
-                            src={expandedImage}
-                            alt="Expanded Profile"
-                            className="max-w-full max-h-[90vh] object-contain rounded-md"
-                        />
-                        <button
-                            className="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors p-2"
-                            onClick={(e) => { e.stopPropagation(); setExpandedImage(null); }}
-                        >
-                            <X size={32} />
-                        </button>
-                    </div>
-                </div>
-            )}
         </div>
     )
 }

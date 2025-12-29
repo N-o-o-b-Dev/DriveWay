@@ -1,265 +1,281 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useDriveway } from '../context/DrivewayContext'
 import { Card, CardContent } from '../components/ui/Card'
-import { Edit, Trash } from 'lucide-react'
+import { Edit, Search, User, Briefcase, Calendar, CheckCircle, AlertCircle, Plus, Filter, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
-import { EditTransactionDrawer } from '../components/EditTransactionDrawer'
-import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog'
+import { Badge } from '../components/ui/Badge'
+import { EditTransactionModal } from '../components/EditTransactionModal'
+import { cn } from '../lib/utils'
 
 export function Transactions() {
-    const [expandedId, setExpandedId] = useState(null)
-    const { transactions, cars, customers, dealers, deleteTransaction } = useDriveway()
+    const { transactions, cars, customers, dealers } = useDriveway()
     const [editingTransaction, setEditingTransaction] = useState(null)
-    const [deleteDialogProps, setDeleteDialogProps] = useState({ isOpen: false, transactionId: null })
     const [searchTerm, setSearchTerm] = useState('')
-    const [statusFilter, setStatusFilter] = useState('All')
-    const [paymentFilter, setPaymentFilter] = useState('All')
-    const [dateStart, setDateStart] = useState('')
-    const [dateEnd, setDateEnd] = useState('')
+    const [activeTab, setActiveTab] = useState('All') // 'All', 'Pending', 'Completed'
+    const [currentPage, setCurrentPage] = useState(1)
+    const ITEMS_PER_PAGE = 9
 
-    const filteredTransactions = transactions.filter(t => {
-        const car = cars.find(c => c.id === t.carId)
-        const customer = customers.find(c => c.id === t.customerId)
-        const dealer = t.dealerId ? dealers.find(d => d.id === t.dealerId) : null
+    // Filtering Logic
+    const filteredTransactions = useMemo(() => {
+        return transactions.filter(t => {
+            const car = cars.find(c => c.id === t.carId)
+            const customer = customers.find(c => c.id === t.customerId)
+            const dealer = t.dealerId ? dealers.find(d => d.id === t.dealerId) : null
 
-        const searchString = `${car?.make} ${car?.model} ${car?.plateNumber} ${customer?.name} ${dealer?.name || ''}`.toLowerCase()
-        const matchesSearch = searchString.includes(searchTerm.toLowerCase())
+            // Search Match
+            const searchString = `${car?.plateNumber} ${customer?.name} ${dealer?.name}`.toLowerCase()
+            const matchesSearch = searchString.includes(searchTerm.toLowerCase())
 
-        const matchesStatus = statusFilter === 'All' || t.status === statusFilter
+            // Financials for Status
+            const total = Number(t.total) || 0
+            const paid = (t.payments || []).reduce((sum, p) => p.type === 'Credit' ? sum + Number(p.amount) : sum - Number(p.amount), 0)
+            const isFullyPaid = (total - paid) <= 0
 
-        const totalPaid = (t.payments || []).reduce((sum, p) => p.type === 'Credit' ? sum + Number(p.amount) : sum - Number(p.amount), 0)
-        const pendingBalance = Math.max(0, (t.total || 0) - totalPaid)
-        const paymentStatus = pendingBalance > 0 ? 'Pending' : 'Completed'
+            // Tab Filter Match
+            let matchesTab = true
+            if (activeTab === 'Pending') matchesTab = !isFullyPaid
+            if (activeTab === 'Completed') matchesTab = isFullyPaid
 
-        const matchesPayment = paymentFilter === 'All' || paymentStatus === paymentFilter
+            return matchesSearch && matchesTab
+        }).sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
+    }, [transactions, cars, customers, dealers, searchTerm, activeTab])
 
-        const transactionDate = new Date(t.startDate)
-        const matchesDateStart = !dateStart || transactionDate >= new Date(dateStart)
-        const matchesDateEnd = !dateEnd || transactionDate <= new Date(dateEnd + 'T23:59:59')
+    const getPendingCount = () => {
+        return transactions.filter(t => {
+            const total = Number(t.total) || 0
+            const paid = (t.payments || []).reduce((sum, p) => p.type === 'Credit' ? sum + Number(p.amount) : sum - Number(p.amount), 0)
+            return (total - paid) > 0
+        }).length
+    }
 
-        return matchesSearch && matchesStatus && matchesPayment && matchesDateStart && matchesDateEnd
-    })
+    // Pagination Logic
+    const totalPages = Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE)
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
+    const currentTransactions = filteredTransactions.slice(startIndex, startIndex + ITEMS_PER_PAGE)
+
+    const handlePageChange = (page) => {
+        setCurrentPage(page)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
 
     return (
-        <div className="space-y-8">
-            <h2 className="text-3xl font-bold tracking-tight">Transactions</h2>
-
-            <div className="flex flex-col gap-4 bg-muted/40 p-4 rounded-lg border">
-                <div className="flex flex-col sm:flex-row gap-4 items-center">
-                    <div className="relative flex-1 w-full">
-                        <Input
-                            placeholder="Search transactions..."
-                            className="bg-background"
-                            value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
-                        />
-                    </div>
-                    <div className="flex gap-2 w-full sm:w-auto">
-                        <select
-                            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm w-full"
-                            value={statusFilter}
-                            onChange={e => setStatusFilter(e.target.value)}
-                        >
-                            <option value="All">All Status</option>
-                            <option value="Active">Active</option>
-                            <option value="Completed">Completed</option>
-                            <option value="Cancelled">Cancelled</option>
-                        </select>
-                        <select
-                            className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm w-full"
-                            value={paymentFilter}
-                            onChange={e => setPaymentFilter(e.target.value)}
-                        >
-                            <option value="All">All Payments</option>
-                            <option value="Pending">Pending</option>
-                            <option value="Completed">Completed</option>
-                        </select>
-                    </div>
+        <div className="space-y-8 animate-in fade-in duration-500">
+            {/* Header Section */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white mb-2">Active Rentals</h1>
+                    <p className="text-gray-400">Manage ongoing rentals, track payments, and view detailed status reports.</p>
                 </div>
-                <div className="flex gap-4 items-center">
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground whitespace-nowrap">From:</span>
-                        <Input
-                            type="date"
-                            className="bg-background w-auto"
-                            value={dateStart}
-                            onChange={e => setDateStart(e.target.value)}
-                        />
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground whitespace-nowrap">To:</span>
-                        <Input
-                            type="date"
-                            className="bg-background w-auto"
-                            value={dateEnd}
-                            onChange={e => setDateEnd(e.target.value)}
-                        />
-                    </div>
+                {/* <Button className="bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-900/20">
+                    <Plus className="mr-2 h-4 w-4" /> Add New Rental
+                </Button> */}
+            </div>
+
+            {/* Filter Bar */}
+            <div className="flex flex-col md:flex-row gap-4 items-center bg-[#1c1917] p-2 rounded-xl border border-white/5">
+                <div className="relative flex-1 w-full">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                    <Input
+                        placeholder="Search by plate, customer, or broker name..."
+                        className="bg-transparent border-none pl-10 text-white placeholder:text-gray-600 focus-visible:ring-0 focus-visible:ring-offset-0"
+                        value={searchTerm}
+                        onChange={e => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+                    {[
+                        { id: 'All', label: 'All Rentals' },
+                        { id: 'Pending', label: 'Pending', count: getPendingCount() },
+                        { id: 'Completed', label: 'Completed' }
+                    ].map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={cn(
+                                "px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap flex items-center gap-2",
+                                activeTab === tab.id
+                                    ? "bg-white text-black"
+                                    : "text-gray-400 hover:bg-white/5 hover:text-white"
+                            )}
+                        >
+                            {tab.label}
+                            {tab.id === 'Pending' && tab.count > 0 && (
+                                <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                                    {tab.count}
+                                </span>
+                            )}
+                        </button>
+                    ))}
                 </div>
             </div>
 
-            <div className="grid gap-4">
-                {filteredTransactions.map((transaction) => {
-                    const car = cars.find(c => c.id === transaction.carId)
-                    const customer = customers.find(c => c.id === transaction.customerId)
-                    const dealer = transaction.dealerId ? dealers.find(d => d.id === transaction.dealerId) : null
-                    const isExpanded = expandedId === transaction.id
+            {/* Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {currentTransactions.map(t => {
+                    const car = cars.find(c => c.id === t.carId)
+                    const customer = customers.find(c => c.id === t.customerId)
+                    const dealer = t.dealerId ? dealers.find(d => d.id === t.dealerId) : null
 
-                    const totalPaid = (transaction.payments || []).reduce((sum, p) => {
-                        return p.type === 'Credit' ? sum + Number(p.amount) : sum - Number(p.amount)
-                    }, 0)
-                    const pendingBalance = Math.max(0, (transaction.total || 0) - totalPaid)
+                    // Financials
+                    const total = Number(t.total) || 0
+                    const paid = (t.payments || []).reduce((sum, p) => p.type === 'Credit' ? sum + Number(p.amount) : sum - Number(p.amount), 0)
+                    const pending = Math.max(0, total - paid)
+                    const progress = total > 0 ? (paid / total) * 100 : 0
+                    const isFullyPaid = pending <= 0
+
+                    // Status Logic
+                    const statusColor = isFullyPaid ? 'bg-green-500/10 text-green-500 border-green-500/20' :
+                        'bg-red-500/10 text-red-500 border-red-500/20'
+                    const statusLabel = isFullyPaid ? 'Completed' : 'Pending'
 
                     return (
-                        <Card
-                            key={transaction.id}
-                            className={`relative group transition-all duration-200 ${isExpanded ? 'ring-2 ring-primary' : 'hover:bg-muted/50 cursor-pointer'}`}
-                            onClick={() => setExpandedId(isExpanded ? null : transaction.id)}
-                        >
-                            <CardContent className="p-6">
-                                <div className="flex items-start justify-between mb-4">
+                        <Card key={t.id} className="bg-[#1c1917] border-white/5 hover:border-white/10 transition-colors group relative overflow-hidden flex flex-col">
+                            {/* Accent Line */}
+                            {!isFullyPaid && <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500" />}
+
+                            <CardContent className="p-6 flex-1 flex flex-col">
+                                {/* Header: Plate & Status */}
+                                <div className="flex justify-between items-start mb-6">
                                     <div>
-                                        <h3 className="font-bold text-lg">{car?.make} {car?.model}</h3>
-                                        <p className="text-sm text-muted-foreground">Customer: {customer?.name}</p>
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                            {transaction.startDate} - {transaction.endDate}
-                                        </p>
-                                        {transaction.notes && (
-                                            <p className="text-sm mt-2 text-foreground/90">
-                                                {transaction.notes}
+                                        <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-1">PLATE NUMBER</p>
+                                        <h3 className="text-2xl font-black text-white font-mono">{car?.plateNumber || 'UNKNOWN'}</h3>
+                                    </div>
+                                    <Badge className={cn("border", statusColor)}>
+                                        {statusLabel}
+                                    </Badge>
+                                </div>
+
+                                {/* Participants Grid */}
+                                <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-[#292524]/50 rounded-xl border border-white/5">
+                                    <div>
+                                        <div className="flex items-center gap-1.5 mb-1 text-gray-400">
+                                            <User className="h-3 w-3" />
+                                            <span className="text-[10px] font-medium uppercase">Customer</span>
+                                        </div>
+                                        <p className="text-sm font-bold text-white truncate">{customer?.name}</p>
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-1.5 mb-1 text-gray-400">
+                                            <Briefcase className="h-3 w-3" />
+                                            <span className="text-[10px] font-medium uppercase">Broker</span>
+                                        </div>
+                                        <p className="text-sm font-bold text-white truncate">{dealer?.name || 'Direct'}</p>
+                                    </div>
+                                    <div className="col-span-2 pt-3 border-t border-white/5 flex justify-between">
+                                        <div>
+                                            <div className="flex items-center gap-1.5 mb-1 text-gray-400">
+                                                <Calendar className="h-3 w-3" />
+                                                <span className="text-[10px] font-medium uppercase">Start</span>
+                                            </div>
+                                            <p className="text-xs font-medium text-white">{new Date(t.startDate).toLocaleDateString()}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="flex items-center justify-end gap-1.5 mb-1 text-gray-400">
+                                                <Calendar className="h-3 w-3" />
+                                                <span className="text-[10px] font-medium uppercase">End</span>
+                                            </div>
+                                            <p className="text-xs font-medium text-white">
+                                                {new Date(t.endDate).toLocaleDateString()}
                                             </p>
-                                        )}
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${transaction.status === 'Active' ? 'bg-green-100 text-green-800 border-green-200' :
-                                            transaction.status === 'Completed' ? 'bg-blue-100 text-blue-800 border-blue-200' :
-                                                'bg-gray-100 text-gray-800 border-gray-200'
-                                            }`}>
-                                            {transaction.status}
-                                        </span>
-                                        {pendingBalance > 0 ? (
-                                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
-                                                Pending
-                                            </span>
-                                        ) : (
-                                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
-                                                Completed
-                                            </span>
-                                        )}
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-3 gap-4 pt-4 border-t">
-                                    <div>
-                                        <p className="text-xs text-muted-foreground">Total Amount</p>
-                                        <p className="font-bold">₹{transaction.total}</p>
+                                {/* Financials */}
+                                <div className="mt-auto">
+                                    <div className="flex justify-between items-end mb-2">
+                                        <div>
+                                            <p className="text-[10px] text-gray-500 mb-0.5">Total Amount</p>
+                                            <p className="text-xl font-black text-white">₹{total.toLocaleString()}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            {isFullyPaid ? (
+                                                <div className="flex items-center gap-1 text-green-500 mb-1">
+                                                    <CheckCircle className="h-3 w-3" />
+                                                    <span className="text-xs font-bold">Fully Paid</span>
+                                                </div>
+                                            ) : (
+                                                <div className="mb-1">
+                                                    <span className="text-[10px] text-green-500 mr-2">Paid: ₹{paid.toLocaleString()}</span>
+                                                    <span className="text-xs font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded">
+                                                        Pending: ₹{pending.toLocaleString()}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-xs text-muted-foreground">Paid Amount</p>
-                                        <p className="font-medium text-green-600">₹{totalPaid}</p>
+                                    {/* Progress Bar */}
+                                    <div className="h-1.5 w-full bg-gray-800 rounded-full overflow-hidden">
+                                        <div
+                                            className={cn("h-full rounded-full transition-all duration-500", isFullyPaid ? "bg-green-500" : "bg-red-500")}
+                                            style={{ width: `${Math.max(5, progress)}%` }}
+                                        />
                                     </div>
-                                    <div>
-                                        <p className="text-xs text-muted-foreground">Balance</p>
-                                        <p className={`font-bold ${pendingBalance > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
-                                            ₹{pendingBalance}
-                                        </p>
+
+                                    {/* Action Buttons */}
+                                    <div className="grid grid-cols-2 gap-3 mt-6">
+                                        <Button
+                                            variant="outline"
+                                            className="w-full border-white/10 hover:bg-white/5 hover:text-white"
+                                            onClick={() => setEditingTransaction(t)}
+                                        >
+                                            Edit Details
+                                        </Button>
+                                        <Button
+                                            className={cn(
+                                                "w-full font-bold shadow-lg",
+                                                isFullyPaid ? "bg-green-600 hover:bg-green-700 shadow-green-900/20" : "bg-red-600 hover:bg-red-700 shadow-red-900/20"
+                                            )}
+                                            onClick={() => setEditingTransaction(t)}
+                                        >
+                                            {isFullyPaid ? 'View Invoice' : 'Make Payment'}
+                                        </Button>
                                     </div>
                                 </div>
-
-                                {isExpanded && (
-                                    <div className="mt-4 pt-4 border-t grid grid-cols-2 gap-4 animate-in slide-in-from-top-2 fade-in duration-200" onClick={e => e.stopPropagation()}>
-                                        <div>
-                                            <p className="text-xs text-muted-foreground">Dealer</p>
-                                            <p className="font-medium">{dealer?.name || 'Unknown Dealer'}</p>
-                                            {dealer?.phone && <p className="text-xs text-muted-foreground">{dealer.phone}</p>}
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-muted-foreground">Start Mileage</p>
-                                            <p className="font-medium">{transaction.startMileage || '-'}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-muted-foreground">Car Plate</p>
-                                            <p className="font-medium">{car?.plateNumber}</p>
-                                        </div>
-                                        <div className="flex gap-2 justify-end items-end h-full">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    setEditingTransaction(transaction)
-                                                }}
-                                            >
-                                                <Edit className="h-4 w-4 mr-2" /> Edit
-                                            </Button>
-                                            <Button
-                                                variant="destructive"
-                                                size="sm"
-                                                onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    setDeleteDialogProps({ isOpen: true, transactionId: transaction.id })
-                                                }}
-                                            >
-                                                <Trash className="h-4 w-4 mr-2" /> Delete
-                                            </Button>
-                                        </div>
-                                    </div>
-                                )}
                             </CardContent>
-
-                            {/* Actions moved to expanded view but kept hover icon for quick access if not expanded? 
-                                Actually, user might want quick access. Let's keep the hover icons but maybe hide them if expanded 
-                                or just let them be. The expanded view has distinct buttons now. 
-                                Let's remove the absolute positioned icons if expanded to avoid clutter, 
-                                OR just keep them. I'll remove the absolute ones to rely on the expanded view buttons for clarity. 
-                            */}
-                            {!isExpanded && (
-                                <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={(e) => {
-                                            e.stopPropagation()
-                                            setEditingTransaction(transaction)
-                                        }}
-                                    >
-                                        <Edit className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                                        onClick={(e) => {
-                                            e.stopPropagation()
-                                            setDeleteDialogProps({ isOpen: true, transactionId: transaction.id })
-                                        }}
-                                    >
-                                        <Trash className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                            )}
                         </Card>
                     )
                 })}
             </div>
 
-            <EditTransactionDrawer
+            {filteredTransactions.length === 0 && (
+                <div className="text-center py-20 text-gray-500">
+                    <p>No transactions found matching your criteria.</p>
+                </div>
+            )}
+
+            {/* Pagination Controls */}
+            {filteredTransactions.length > ITEMS_PER_PAGE && (
+                <div className="flex justify-center items-center gap-2 mt-8">
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                        disabled={currentPage === 1}
+                        className="border-white/10 hover:bg-white/5"
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <div className="text-sm text-gray-400">
+                        Page <span className="text-white font-bold">{currentPage}</span> of {totalPages}
+                    </div>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                        disabled={currentPage === totalPages}
+                        className="border-white/10 hover:bg-white/5"
+                    >
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                </div>
+            )}
+
+            <EditTransactionModal
                 isOpen={!!editingTransaction}
                 onClose={() => setEditingTransaction(null)}
                 transaction={editingTransaction}
-            />
-
-            <DeleteConfirmDialog
-                isOpen={deleteDialogProps.isOpen}
-                onClose={() => setDeleteDialogProps({ isOpen: false, transactionId: null })}
-                onConfirm={() => {
-                    if (deleteDialogProps.transactionId) {
-                        deleteTransaction(deleteDialogProps.transactionId)
-                    }
-                }}
-                title="Delete Transaction"
-                description="Are you sure you want to delete this transaction? This action cannot be undone."
             />
         </div>
     )

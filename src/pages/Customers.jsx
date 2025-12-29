@@ -1,39 +1,103 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDriveway } from '../context/DrivewayContext'
 import { Card, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
-import { Plus, Edit, Store, ChevronRight, User, Trash2, ArrowUpRight } from 'lucide-react'
-import { EditCustomerDrawer } from '../components/EditCustomerDrawer'
-import { PendingTransactionsDrawer } from '../components/PendingTransactionsDrawer'
-import { Dialog, DialogHeader, DialogTitle } from '../components/ui/Dialog'
+import {
+    Plus, Search, Filter, User, Users, UserCheck,
+    UserX, Phone, ShieldCheck, Download, MoreHorizontal, LayoutGrid, List, ChevronLeft, ChevronRight
+} from 'lucide-react'
+import { EditCustomerModal } from '../components/EditCustomerModal'
+import { AddCustomerModal } from '../components/AddCustomerModal'
+import { cn } from '../lib/utils'
 
-function CustomerCard({ customer, onQuickView }) {
+function QuickStatCard({ title, value, subtext, icon: Icon, trend }) {
     return (
-        <Card
-            className="relative overflow-hidden transition-all duration-300 hover:shadow-lg border-l-4 border-l-primary/20 hover:border-l-primary cursor-pointer"
-            onClick={onQuickView}
-        >
+        <Card className="bg-[#1c1917] border-white/5">
             <CardContent className="p-6">
-                <div className="flex justify-between items-center">
-                    <div className="flex gap-4 items-center">
-                        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden border-2 border-white shadow-sm">
+                <div className="flex justify-between items-start mb-4">
+                    <div>
+                        <p className="text-sm text-gray-400 font-medium">{title}</p>
+                        <h3 className="text-3xl font-bold text-white mt-1">{value}</h3>
+                    </div>
+                    <div className="p-2 bg-white/5 rounded-lg">
+                        <Icon className="h-5 w-5 text-gray-400" />
+                    </div>
+                </div>
+                {subtext && (
+                    <div className="flex items-center gap-2">
+                        {trend && (
+                            <span className={cn(
+                                "text-xs font-bold px-1.5 py-0.5 rounded",
+                                trend > 0 ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                            )}>
+                                {trend > 0 ? '+' : ''}{trend}%
+                            </span>
+                        )}
+                        <span className="text-xs text-gray-500">{subtext}</span>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    )
+}
+
+function CustomerGridCard({ customer, onClick }) {
+    const statusColor =
+        customer.status === 'Blacklisted' ? 'bg-red-500' :
+            customer.status === 'VIP' ? 'bg-yellow-500' :
+                'bg-green-500'
+
+    return (
+        <Card className="bg-[#1c1917] border-white/5 overflow-hidden group hover:border-white/20 transition-all">
+            <CardContent className="p-6">
+                <div className="flex flex-col items-center text-center">
+                    {/* Avatar */}
+                    <div className="relative mb-4">
+                        <div className="h-20 w-20 rounded-full bg-[#292524] flex items-center justify-center overflow-hidden border-2 border-white/10 group-hover:border-white/30 transition-colors">
                             {customer.image ? (
                                 <img src={customer.image} alt={customer.name} className="h-full w-full object-cover" />
                             ) : (
-                                <User className="h-6 w-6 text-primary" />
+                                <User className="h-8 w-8 text-gray-500" />
                             )}
                         </div>
-                        <div>
-                            <h3 className="font-bold text-lg leading-none mb-1">{customer.name}</h3>
-                            <div className="flex flex-col text-sm text-muted-foreground">
-                                <span>{customer.phone}</span>
-                            </div>
+                        <div className={cn("absolute bottom-0 right-0 h-5 w-5 rounded-full border-4 border-[#1c1917]", statusColor)} />
+                    </div>
+
+                    {/* Info */}
+                    <h3 className="text-lg font-bold text-white mb-1">{customer.name}</h3>
+                    <p className="text-[10px] text-gray-500 font-mono tracking-widest uppercase mb-4">
+                        ID: {customer.uniqueId || '#CUST-XXXX'}
+                    </p>
+
+                    {/* Contact Stats */}
+                    <div className="w-full space-y-3 mb-6">
+                        <div className="flex items-center justify-between text-sm py-2 border-b border-white/5">
+                            <span className="flex items-center gap-2 text-gray-400">
+                                <Phone className="h-3 w-3" /> Phone
+                            </span>
+                            <span className="text-gray-200">{customer.phone}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm py-2 border-b border-white/5">
+                            <span className="flex items-center gap-2 text-gray-400">
+                                <ShieldCheck className="h-3 w-3" /> Status
+                            </span>
+                            <span className={cn(
+                                "text-xs px-2 py-0.5 rounded font-medium",
+                                customer.status === 'Blacklisted' ? "bg-red-500/10 text-red-500" : "bg-green-500/10 text-green-500"
+                            )}>
+                                {customer.status || 'Active'}
+                            </span>
                         </div>
                     </div>
-                    <Button variant="ghost" size="icon" className="text-muted-foreground">
-                        <ChevronRight className="h-5 w-5" />
+
+                    {/* Action */}
+                    <Button
+                        className="w-full bg-[#292524] hover:bg-[#3f3a38] text-white border-none"
+                        onClick={onClick}
+                    >
+                        View Profile
                     </Button>
                 </div>
             </CardContent>
@@ -42,332 +106,244 @@ function CustomerCard({ customer, onQuickView }) {
 }
 
 export function Customers() {
-    const { customers, addCustomer, deleteCustomer, transactions, dealers, cars } = useDriveway()
+    const { customers, addCustomer, transactions } = useDriveway()
     const navigate = useNavigate()
-    const [isAdding, setIsAdding] = useState(false)
-    const [newCustomer, setNewCustomer] = useState({
-        name: '', email: '', phone: '', address: '', dob: '',
-        dealerId: '', dlImage: '', aadhaarFront: '', aadhaarBack: ''
-    })
-    const [editingCustomer, setEditingCustomer] = useState(null)
-    const [pendingDrawerEntity, setPendingDrawerEntity] = useState(null)
-    const [quickViewCustomer, setQuickViewCustomer] = useState(null)
+
+    // State
     const [searchTerm, setSearchTerm] = useState('')
+    const [statusFilter, setStatusFilter] = useState('All Customers') // 'All Customers', 'Active Rentals', 'Blacklisted', 'VIP'
+    const [viewMode, setViewMode] = useState('grid') // 'grid' | 'list'
+    const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false)
+    const [editingCustomer, setEditingCustomer] = useState(null)
+    const [currentPage, setCurrentPage] = useState(1)
+    const ITEMS_PER_PAGE = 8
 
-    const filteredCustomers = customers.filter(c =>
-        (c.name + ' ' + c.phone + ' ' + c.email).toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    // Derived Data
+    const stats = useMemo(() => {
+        const total = customers.length
 
-    const handleImageChange = async (field, e) => {
-        const file = e.target.files[0]
-        if (file) {
-            try {
-                // Dynamically import to avoid top-level dependency issues
-                const { compressImage } = await import('../lib/imageCompression')
-                const compressedBase64 = await compressImage(file)
-                setNewCustomer(prev => ({ ...prev, [field]: compressedBase64 }))
-            } catch (error) {
-                console.error("Image compression failed:", error)
-                // Fallback to normal reading
-                const reader = new FileReader()
-                reader.onloadend = () => {
-                    setNewCustomer(prev => ({ ...prev, [field]: reader.result }))
-                }
-                reader.readAsDataURL(file)
+        // Active Rentals
+        const activeRentalsCount = new Set(
+            transactions
+                .filter(t => {
+                    const now = new Date()
+                    return new Date(t.startDate) <= now && new Date(t.endDate) >= now && t.status !== 'Cancelled'
+                })
+                .map(t => t.customerId)
+        ).size
+
+        // New This Month
+        const now = new Date()
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+        const newThisMonth = customers.filter(c => c.createdAt && new Date(c.createdAt) >= startOfMonth).length
+
+        // Blacklisted
+        const blacklisted = customers.filter(c => c.status === 'Blacklisted').length
+
+        return {
+            total,
+            activeRentals: activeRentalsCount,
+            newThisMonth,
+            blacklisted
+        }
+    }, [customers, transactions])
+
+    const filteredCustomers = useMemo(() => {
+        return customers.filter(c => {
+            const matchesSearch = (c.name + ' ' + c.phone + ' ' + c.email).toLowerCase().includes(searchTerm.toLowerCase())
+
+            let matchesFilter = true
+            if (statusFilter === 'Active Rentals') {
+                // Check if customer has active transaction
+                const hasActive = transactions.some(t =>
+                    t.customerId === c.id &&
+                    new Date(t.startDate) <= new Date() &&
+                    new Date(t.endDate) >= new Date() &&
+                    t.status !== 'Cancelled'
+                )
+                matchesFilter = hasActive
+            } else if (statusFilter === 'Blacklisted') {
+                matchesFilter = c.status === 'Blacklisted'
+            } else if (statusFilter === 'VIP') {
+                matchesFilter = c.status === 'VIP' // Or logic for high spenders
             }
-        }
+
+            return matchesSearch && matchesFilter
+        })
+    }, [customers, searchTerm, statusFilter, transactions])
+
+    // Pagination Logic
+    const totalPages = Math.ceil(filteredCustomers.length / ITEMS_PER_PAGE)
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
+    const currentCustomers = filteredCustomers.slice(startIndex, startIndex + ITEMS_PER_PAGE)
+
+    const handlePageChange = (page) => {
+        setCurrentPage(page)
+        window.scrollTo({ top: 0, behavior: 'smooth' })
     }
 
-    const handleDelete = async (id) => {
-        if (window.confirm('Are you sure you want to delete this customer? This action cannot be undone.')) {
-            try {
-                await deleteCustomer(id)
-                if (quickViewCustomer?.id === id) setQuickViewCustomer(null)
-            } catch (error) {
-                alert('Failed to delete customer: ' + error.message)
-            }
-        }
+
+    // Handlers
+    const handleAddCustomer = (newCustomerData) => {
+        // Just wrap the add logic from context or drawer usage
+        // This component might usually just open the drawer, logic inside drawer
     }
 
-    const handleSubmit = (e) => {
-        e.preventDefault()
-        try {
-            addCustomer(newCustomer)
-            setIsAdding(false)
-            setNewCustomer({
-                name: '', email: '', phone: '', address: '', dob: '',
-                dealerId: '', dlImage: '', aadhaarFront: '', aadhaarBack: ''
-            })
-        } catch (error) {
-            alert(error.message)
-        }
-    }
 
     return (
         <div className="space-y-8">
-            <div className="flex items-center justify-between">
-                <h2 className="text-3xl font-bold tracking-tight">Customers</h2>
-                <Button onClick={() => setIsAdding(!isAdding)}>
-                    <Plus className="mr-2 h-4 w-4" /> Add Customer
-                </Button>
-            </div>
-
-            <div className="flex items-center bg-muted/40 p-4 rounded-lg border">
-                <div className="relative flex-1">
-                    <div className="absolute left-2.5 top-2.5 text-muted-foreground">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
-                    </div>
-                    <Input
-                        placeholder="Search customers by name, phone, or email..."
-                        className="pl-9 bg-background"
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                    />
+            {/* Page Header */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">Customer Management</h1>
+                    <p className="text-gray-400">View and manage your customer database, history, and status.</p>
+                </div>
+                <div className="flex gap-3">
+                    <Button variant="outline" className="border-white/10 text-gray-300 hover:bg-white/5">
+                        <Download className="mr-2 h-4 w-4" /> Export
+                    </Button>
+                    <Button
+                        className="bg-red-600 hover:bg-red-700 text-white border-0"
+                        onClick={() => setIsAddDrawerOpen(true)}
+                    >
+                        <Plus className="mr-2 h-4 w-4" /> Add Customer
+                    </Button>
                 </div>
             </div>
 
-            {isAdding && (
-                <Card className="max-w-2xl">
-                    <CardContent className="pt-6">
-                        <div className="text-lg font-semibold mb-4">Add New Customer</div>
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                                <Input
-                                    placeholder="Customer Name"
-                                    value={newCustomer.name}
-                                    onChange={e => setNewCustomer({ ...newCustomer, name: e.target.value })}
-                                    required
-                                />
-                                <Input
-                                    type="email"
-                                    placeholder="Email"
-                                    value={newCustomer.email}
-                                    onChange={e => setNewCustomer({ ...newCustomer, email: e.target.value })}
-                                    required
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <Input
-                                    placeholder="Phone"
-                                    value={newCustomer.phone}
-                                    onChange={e => setNewCustomer({ ...newCustomer, phone: e.target.value })}
-                                    required
-                                />
-                                <div className="space-y-1">
-                                    <label className="text-xs font-medium ml-1">Date of Birth</label>
-                                    <Input
-                                        type="date"
-                                        placeholder="Date of Birth"
-                                        value={newCustomer.dob}
-                                        onChange={e => setNewCustomer({ ...newCustomer, dob: e.target.value })}
-                                    />
-                                </div>
-                                <select
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-surface-dark dark:text-text-dark dark:border-surface"
-                                    value={newCustomer.dealerId}
-                                    onChange={e => setNewCustomer({ ...newCustomer, dealerId: e.target.value })}
-                                >
-                                    <option value="">Select Dealer (Optional)</option>
-                                    {dealers.map(dealer => (
-                                        <option key={dealer.id} value={dealer.id}>{dealer.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <Input
-                                placeholder="Address"
-                                value={newCustomer.address}
-                                onChange={e => setNewCustomer({ ...newCustomer, address: e.target.value })}
-                            />
+            {/* Stats Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <QuickStatCard
+                    title="Total Customers"
+                    value={stats.total.toLocaleString()}
+                    icon={Users}
+                    trend={5}
+                    subtext="vs last month"
+                />
+                <QuickStatCard
+                    title="Active Rentals"
+                    value={stats.activeRentals}
+                    icon={UserCheck}
+                    trend={12}
+                    subtext="currently renting"
+                />
+                <QuickStatCard
+                    title="New This Month"
+                    value={stats.newThisMonth}
+                    icon={User}
+                    trend={-2}
+                    subtext="new registrations"
+                />
+                <QuickStatCard
+                    title="Blacklisted"
+                    value={stats.blacklisted}
+                    icon={UserX}
+                    subtext="0% of total" // Mock calc
+                />
+            </div>
 
-                            <div className="space-y-4 pt-4 border-t">
-                                <h4 className="font-medium text-sm">Documents & Images</h4>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-medium">Profile Image</label>
-                                        <Input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={(e) => handleImageChange('image', e)}
-                                            className="cursor-pointer text-xs"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-medium">DL Image</label>
-                                        <Input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={(e) => handleImageChange('dlImage', e)}
-                                            className="cursor-pointer text-xs"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-medium">Aadhaar Front</label>
-                                        <Input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={(e) => handleImageChange('aadhaarFront', e)}
-                                            className="cursor-pointer text-xs"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs font-medium">Aadhaar Back</label>
-                                        <Input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={(e) => handleImageChange('aadhaarBack', e)}
-                                            className="cursor-pointer text-xs"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
+            {/* Filters & Toolbar */}
+            <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div className="flex gap-2 bg-[#1c1917] p-1 rounded-lg border border-white/5">
+                    {['All Customers', 'Active Rentals', 'Blacklisted', 'VIP'].map(filter => (
+                        <button
+                            key={filter}
+                            onClick={() => setStatusFilter(filter)}
+                            className={cn(
+                                "px-4 py-2 text-sm font-medium rounded-md transition-colors",
+                                statusFilter === filter
+                                    ? "bg-[#292524] text-white shadow-sm"
+                                    : "text-gray-400 hover:text-white hover:bg-white/5"
+                            )}
+                        >
+                            {filter}
+                        </button>
+                    ))}
+                </div>
 
-                            <Button type="submit" className="w-full">Save Customer</Button>
-                        </form>
-                    </CardContent>
-                </Card>
-            )}
+                <div className="flex gap-3 items-center w-full md:w-auto">
+                    <div className="relative flex-1 md:min-w-[240px]">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                        <Input
+                            placeholder="Search customers..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="bg-[#1c1917] border-white/10 pl-9 text-white placeholder:text-gray-600 focus:ring-red-500"
+                        />
+                    </div>
+                    <div className="flex gap-1 bg-[#1c1917] p-1 rounded-lg border border-white/5">
+                        <button
+                            onClick={() => setViewMode('grid')}
+                            className={cn(
+                                "p-2 rounded-md transition-colors",
+                                viewMode === 'grid' ? "bg-[#292524] text-white" : "text-gray-500 hover:text-white"
+                            )}
+                        >
+                            <LayoutGrid className="h-4 w-4" />
+                        </button>
+                        <button
+                            onClick={() => setViewMode('list')}
+                            className={cn(
+                                "p-2 rounded-md transition-colors",
+                                viewMode === 'list' ? "bg-[#292524] text-white" : "text-gray-500 hover:text-white"
+                            )}
+                        >
+                            <List className="h-4 w-4" />
+                        </button>
+                    </div>
+                </div>
+            </div>
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 items-start">
-                {filteredCustomers.map((customer) => (
-                    <CustomerCard
+            {/* Grid Content */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {currentCustomers.map(customer => (
+                    <CustomerGridCard
                         key={customer.id}
                         customer={customer}
-                        onQuickView={() => setQuickViewCustomer(customer)}
+                        onClick={() => navigate(`/customers/${customer.id}`)}
                     />
                 ))}
             </div>
 
-            <Dialog isOpen={!!quickViewCustomer} onClose={() => setQuickViewCustomer(null)}>
-                {quickViewCustomer && (() => {
-                    const customerTransactions = transactions.filter(t => t.customerId === quickViewCustomer.id)
-                    const pendingAmount = customerTransactions
-                        .filter(t => t.paymentStatus !== 'Paid')
-                        .reduce((sum, t) => sum + Math.max(0, (Number(t.total) || 0) - (Number(t.amountPaid) || 0)), 0)
+            {/* Pagination Controls */}
+            {filteredCustomers.length > ITEMS_PER_PAGE && (
+                <div className="flex justify-center items-center gap-2 mt-8">
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                        disabled={currentPage === 1}
+                        className="border-white/10 hover:bg-white/5"
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <div className="text-sm text-gray-400">
+                        Page <span className="text-white font-bold">{currentPage}</span> of {totalPages}
+                    </div>
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
+                        disabled={currentPage === totalPages}
+                        className="border-white/10 hover:bg-white/5"
+                    >
+                        <ChevronRight className="h-4 w-4" />
+                    </Button>
+                </div>
+            )}
 
-                    const recentRentals = [...customerTransactions]
-                        .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
-                        .slice(0, 3)
+            {/* Drawers & Modals */}
+            <AddCustomerModal
+                isOpen={isAddDrawerOpen}
+                onClose={() => setIsAddDrawerOpen(false)}
+            />
 
-                    const dealer = dealers.find(d => d.id === quickViewCustomer.dealerId)
-
-                    return (
-                        <div className="space-y-6">
-                            <div className="flex items-start justify-between">
-                                <div>
-                                    <DialogTitle className="text-xl mb-1">{quickViewCustomer.name}</DialogTitle>
-                                    <p className="text-sm text-muted-foreground">{quickViewCustomer.email}</p>
-                                    <p className="text-sm text-muted-foreground">{quickViewCustomer.phone}</p>
-                                    {quickViewCustomer.address && <p className="text-sm text-muted-foreground mt-1">{quickViewCustomer.address}</p>}
-                                    {customerTransactions.length > 0 && <p className="text-xs bg-muted px-2 py-0.5 rounded w-fit mt-2">ID: {quickViewCustomer.uniqueId || 'N/A'}</p>}
-                                </div>
-                                {quickViewCustomer.image && (
-                                    <div className="h-16 w-16 rounded-full overflow-hidden border shrink-0 ml-4">
-                                        <img src={quickViewCustomer.image} className="w-full h-full object-cover" />
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div
-                                    className="p-4 bg-muted/40 rounded-lg cursor-pointer hover:bg-muted transition-colors border"
-                                    onClick={() => {
-                                        setQuickViewCustomer(null)
-                                        setPendingDrawerEntity(quickViewCustomer)
-                                    }}
-                                >
-                                    <p className="text-xs font-medium text-muted-foreground">Pending Balance</p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <p className={`text-xl font-bold ${pendingAmount > 0 ? 'text-destructive' : ''}`}>
-                                            ₹{pendingAmount.toLocaleString()}
-                                        </p>
-                                        <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
-                                    </div>
-                                </div>
-                                <div className="p-4 bg-muted/40 rounded-lg border">
-                                    <p className="text-xs font-medium text-muted-foreground">Total Rentals</p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <p className="text-xl font-bold">
-                                            {customerTransactions.length}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {dealer && (
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/20 p-2 rounded">
-                                    <Store className="h-4 w-4" />
-                                    <span>Referred by: <span className="font-medium text-foreground">{dealer.name}</span></span>
-                                </div>
-                            )}
-
-                            <div>
-                                <h4 className="text-sm font-semibold mb-3">Recent Rentals</h4>
-                                <div className="space-y-3">
-                                    {recentRentals.length > 0 ? recentRentals.map(t => {
-                                        const car = cars.find(c => c.id === t.carId)
-                                        return (
-                                            <div key={t.id} className="flex justify-between items-center text-sm border-b pb-2 last:border-0 last:pb-0">
-                                                <div>
-                                                    <p className="font-medium">{car ? `${car.make} ${car.model}` : 'Unknown Car'}</p>
-                                                    <p className="text-xs text-muted-foreground">{new Date(t.startDate).toLocaleDateString()} • ₹{t.total}</p>
-                                                </div>
-                                                <span className={`text-xs px-2 py-1 rounded-full ${t.paymentStatus === 'Paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                                                    {t.paymentStatus || 'Pending'}
-                                                </span>
-                                            </div>
-                                        )
-                                    }) : (
-                                        <p className="text-sm text-muted-foreground italic">No recent rentals</p>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="flex gap-2 pt-2">
-                                <Button
-                                    className="flex-1"
-                                    onClick={() => {
-                                        setQuickViewCustomer(null)
-                                        navigate('/customers/' + quickViewCustomer.id)
-                                    }}
-                                >
-                                    <User className="mr-2 h-4 w-4" /> View Full Profile
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => {
-                                        setQuickViewCustomer(null)
-                                        setEditingCustomer(quickViewCustomer)
-                                    }}
-                                >
-                                    <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                    variant="destructive"
-                                    size="icon"
-                                    onClick={() => handleDelete(quickViewCustomer.id)}
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        </div>
-                    )
-                })()}
-            </Dialog>
-
-            <EditCustomerDrawer
+            <EditCustomerModal
                 isOpen={!!editingCustomer}
                 onClose={() => setEditingCustomer(null)}
                 customer={editingCustomer}
             />
-
-            <PendingTransactionsDrawer
-                isOpen={!!pendingDrawerEntity}
-                onClose={() => setPendingDrawerEntity(null)}
-                entity={pendingDrawerEntity}
-                transactions={transactions}
-                type="customer"
-            />
         </div>
     )
 }
+

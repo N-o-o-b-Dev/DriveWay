@@ -3,7 +3,7 @@ import { useDriveway } from '../context/DrivewayContext'
 import { Sheet, SheetHeader, SheetTitle } from './ui/Sheet'
 import { Card, CardContent } from './ui/Card'
 import { Button } from './ui/Button'
-import { EditTransactionDrawer } from './EditTransactionDrawer'
+import { EditTransactionModal } from './EditTransactionModal'
 
 export function PendingTransactionsDrawer({ isOpen, onClose, entity, transactions, type }) {
     const { cars } = useDriveway()
@@ -74,7 +74,7 @@ export function PendingTransactionsDrawer({ isOpen, onClose, entity, transaction
             </Sheet>
 
             {/* Nested Drawer for editing/paying */}
-            <EditTransactionDrawer
+            <EditTransactionModal
                 isOpen={!!selectedTransaction}
                 onClose={() => {
                     setSelectedTransaction(null)

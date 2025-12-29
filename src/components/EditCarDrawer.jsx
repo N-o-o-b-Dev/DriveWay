@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useDriveway } from '../context/DrivewayContext'
 import { Button } from './ui/Button'
 import { Input } from './ui/Input'
-import { Sheet, SheetHeader, SheetTitle } from './ui/Sheet'
+import { Dialog, DialogHeader, DialogTitle } from './ui/Dialog'
 
 export function EditCarDrawer({ isOpen, onClose, car }) {
     const { updateCar } = useDriveway()
@@ -72,11 +72,11 @@ export function EditCarDrawer({ isOpen, onClose, car }) {
     }
 
     return (
-        <Sheet isOpen={isOpen} onClose={onClose}>
-            <SheetHeader>
-                <SheetTitle>Edit Car</SheetTitle>
-            </SheetHeader>
-            <div className="mt-6 h-[calc(100vh-10rem)] overflow-y-auto pr-4">
+        <Dialog isOpen={isOpen} onClose={onClose} className="max-w-3xl">
+            <DialogHeader>
+                <DialogTitle>Edit Car</DialogTitle>
+            </DialogHeader>
+            <div className="mt-4 max-h-[80vh] overflow-y-auto pr-2">
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                         <Input
@@ -260,9 +260,12 @@ export function EditCarDrawer({ isOpen, onClose, car }) {
                         </div>
                     </div>
 
-                    <Button type="submit" className="w-full">Save Changes</Button>
+                    <div className="flex justify-end gap-3 pt-4">
+                        <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+                        <Button type="submit">Save Changes</Button>
+                    </div>
                 </form>
             </div>
-        </Sheet>
+        </Dialog>
     )
 }

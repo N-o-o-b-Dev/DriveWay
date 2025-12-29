@@ -4,7 +4,7 @@ import { Card, CardContent } from './ui/Card'
 import { Button } from './ui/Button'
 import { MapPin, Phone, Wrench, Edit, Trash2 } from 'lucide-react'
 import { useDriveway } from '../context/DrivewayContext'
-import { EditMaintenanceDrawer } from './EditMaintenanceDrawer'
+import { EditMaintenanceModal } from './EditMaintenanceModal'
 
 export function WorkshopDetailsDrawer({ isOpen, onClose, workshop }) {
     const { cars, deleteMaintenanceRecord } = useDriveway()
@@ -124,7 +124,7 @@ export function WorkshopDetailsDrawer({ isOpen, onClose, workshop }) {
                 </div>
             </Sheet>
 
-            <EditMaintenanceDrawer
+            <EditMaintenanceModal
                 isOpen={isEditDrawerOpen}
                 onClose={() => setIsEditDrawerOpen(false)}
                 record={editingRecord}

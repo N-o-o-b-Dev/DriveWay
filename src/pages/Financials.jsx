@@ -3,226 +3,364 @@ import { useDriveway } from '../context/DrivewayContext'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table'
-import { ArrowUpRight, ArrowDownLeft, Search, Filter } from 'lucide-react'
+import { Badge } from '../components/ui/Badge'
+import {
+    ArrowUpRight,
+    ArrowDownLeft,
+    Search,
+    Filter,
+    Download,
+    Landmark,
+    Wallet,
+    CreditCard,
+    Car,
+    Wrench,
+    MoreVertical,
+    TrendingUp,
+    TrendingDown,
+    Building2
+} from 'lucide-react'
+import {
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer,
+    Cell
+} from 'recharts'
+import { cn } from '../lib/utils'
 
 export function Financials() {
     const { transactions, cars, customers, dealers, maintenanceRecords } = useDriveway()
     const [searchTerm, setSearchTerm] = useState('')
-    const [filterType, setFilterType] = useState('All') // All, Credit, Debit
+    const [timeRange, setTimeRange] = useState('Last 6 Months')
+    const [activeTab, setActiveTab] = useState('Overview')
 
-    // Flatten all payments and maintenance into a single list with context
+    // --- Data Processing ---
+
     const allPayments = useMemo(() => {
         const flattened = []
 
-        // 1. Process Transaction Payments
+        // 1. Rental Income
         transactions.forEach(t => {
             const car = cars.find(c => c.id === t.carId)
             const customer = customers.find(c => c.id === t.customerId)
-            const dealer = dealers.find(d => d.id === t.dealerId)
 
-            if (t.payments && t.payments.length > 0) {
+            if (t.payments?.length > 0) {
                 t.payments.forEach(p => {
                     flattened.push({
-                        ...p,
-                        transactionId: t.id,
-                        carModel: car ? `${car.make} ${car.model}` : 'Unknown Car',
-                        customerName: customer ? customer.name : 'Unknown Customer',
-                        dealerName: dealer ? dealer.name : null, // Optional
-                        rentalDate: `${t.startDate} - ${t.endDate}`,
-                        category: 'Rental'
+                        id: p.id,
+                        displayId: `INV-${t.id.slice(0, 4).toUpperCase()}-${p.id.slice(0, 3)}`,
+                        date: p.date,
+                        actualDate: new Date(p.date),
+                        amount: Number(p.amount),
+                        type: 'Credit',
+                        category: 'Rental',
+                        heading: `${car ? `${car.make} ${car.model}` : 'Unknown Car'} Rental`,
+                        subHeading: customer ? customer.name : 'Unknown Customer',
+                        medium: p.medium,
+                        icon: Car,
+                        color: 'bg-red-500/10 text-red-500',
+                        note: p.notes || ''
                     })
                 })
             }
         })
 
-        // 2. Process Maintenance Records (Expenses)
+        // 2. Maintenance Expenses
         if (maintenanceRecords) {
-            maintenanceRecords.forEach(record => {
-                // Determine expense amount (Amount Paid)
-                let expenseAmount = 0
-                if (record.amountPaid !== undefined && record.amountPaid !== null && record.amountPaid !== '') {
-                    expenseAmount = parseFloat(record.amountPaid)
-                } else {
-                    // Legacy/Fallback: If marked Paid but no amountPaid, assume full amount.
-                    if (record.paymentStatus === 'Paid' || !record.paymentStatus) {
-                        expenseAmount = parseFloat(record.amount)
-                    }
-                }
-
-                if (expenseAmount > 0) {
-                    const car = cars.find(c => c.id === record.carId)
+            maintenanceRecords.forEach(m => {
+                const amount = m.amountPaid ? Number(m.amountPaid) : (m.paymentStatus === 'Paid' ? Number(m.amount) : 0)
+                if (amount > 0) {
+                    const car = cars.find(c => c.id === m.carId)
                     flattened.push({
-                        id: record.id,
-                        date: record.date,
-                        amount: expenseAmount,
+                        id: m.id,
+                        displayId: `EXP-${m.id.slice(0, 4).toUpperCase()}`,
+                        date: m.date,
+                        actualDate: new Date(m.date),
+                        amount: amount,
                         type: 'Debit',
-                        medium: 'Cash', // Default assumption for maintenance
-                        carModel: car ? `${car.make} ${car.model}` : 'Unknown Car',
-                        customerName: record.workshopName || 'Workshop', // Use Workshop as "Customer" entity
-                        dealerName: null,
-                        notes: `Maintenance: ${record.description || 'No description'} (${record.workshopDetails || ''})`,
-                        category: 'Maintenance'
+                        category: 'Maintenance',
+                        heading: `${car ? `${car.make} ${car.model}` : 'Unknown Car'} Maintenance`,
+                        subHeading: m.workshopName || 'Workshop',
+                        medium: 'Cash', // Default
+                        icon: Wrench,
+                        color: 'bg-slate-500/10 text-slate-400',
+                        note: `Maintenance: ${m.description || 'No description'}`
                     })
                 }
             })
         }
 
-        // Sort by date descending
-        return flattened.sort((a, b) => new Date(b.date) - new Date(a.date))
-    }, [transactions, cars, customers, dealers, maintenanceRecords])
+        return flattened.sort((a, b) => b.actualDate - a.actualDate)
+    }, [transactions, cars, customers, maintenanceRecords])
 
-    // Filter Logic
-    const filteredPayments = allPayments.filter(p => {
-        const matchesSearch =
-            p.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            p.carModel.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (p.notes && p.notes.toLowerCase().includes(searchTerm.toLowerCase()))
+    // --- Chart Data Preparation ---
+    const chartData = useMemo(() => {
+        const monthlyData = {}
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-        const matchesType = filterType === 'All' || p.type === filterType
+        // Initialize last 6 months
+        const today = new Date()
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
+            const key = `${months[d.getMonth()]}`
+            monthlyData[key] = { name: key, income: 0, expense: 0, net: 0 }
+        }
 
-        return matchesSearch && matchesType
-    })
+        allPayments.forEach(p => {
+            const d = new Date(p.date)
+            // Only include if within last 6 months (roughly)
+            // For simplicity, just matching month names if they exist in our initialized keys
+            const key = months[d.getMonth()]
+            if (monthlyData[key]) {
+                if (p.type === 'Credit') monthlyData[key].income += p.amount
+                else monthlyData[key].expense += p.amount
+            }
+        })
 
-    const totalIncome = filteredPayments
-        .filter(p => p.type === 'Credit')
-        .reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
+        return Object.values(monthlyData).map(d => ({
+            ...d,
+            net: d.income - d.expense
+        }))
+    }, [allPayments])
 
-    const totalExpenses = filteredPayments
-        .filter(p => p.type === 'Debit')
-        .reduce((sum, p) => sum + (Number(p.amount) || 0), 0)
 
+    // --- Totals ---
+    const totalIncome = allPayments.filter(p => p.type === 'Credit').reduce((sum, p) => sum + p.amount, 0)
+    const totalExpenses = allPayments.filter(p => p.type === 'Debit').reduce((sum, p) => sum + p.amount, 0)
     const netCashflow = totalIncome - totalExpenses
 
+    // --- Filtering for List ---
+    const filteredList = allPayments.filter(p =>
+        p.heading.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.subHeading.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.note.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+
     return (
-        <div className="space-y-6">
-            <h2 className="text-3xl font-bold tracking-tight">Financials</h2>
+        <div className="space-y-8 pb-10">
 
-            {/* Summary Cards */}
-            <div className="grid gap-4 md:grid-cols-3">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Net Cashflow</CardTitle>
-                        <span className="text-muted-foreground font-bold text-lg">₹</span>
-                    </CardHeader>
-                    <CardContent>
-                        <div className={`text-2xl font-bold ${netCashflow >= 0 ? 'text-green-600' : 'text-destructive'}`}>
-                            {netCashflow >= 0 ? '+' : ''}₹{netCashflow.toLocaleString()}
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Income (Credit)</CardTitle>
-                        <ArrowDownLeft className="h-4 w-4 text-green-600" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-green-600">
-                            ₹{totalIncome.toLocaleString()}
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Expenses (Debit)</CardTitle>
-                        <ArrowUpRight className="h-4 w-4 text-destructive" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-destructive">
-                            ₹{totalExpenses.toLocaleString()}
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Controls */}
-            <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
-                <div className="relative w-full md:w-96">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Search customer, car, or notes..."
-                        className="pl-8"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+            {/* Header Section */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight text-white mb-1">Financial Overview</h1>
+                    <p className="text-slate-400">Track your income, expenses, and transaction history.</p>
                 </div>
-                <div className="flex gap-2 w-full md:w-auto">
-                    <Button
-                        variant={filterType === 'All' ? 'default' : 'outline'}
-                        onClick={() => setFilterType('All')}
-                        size="sm"
-                    >
-                        All
-                    </Button>
-                    <Button
-                        variant={filterType === 'Credit' ? 'default' : 'outline'}
-                        onClick={() => setFilterType('Credit')}
-                        size="sm"
-                        className={filterType === 'Credit' ? 'bg-green-600 hover:bg-green-700' : ''}
-                    >
-                        Income Only
-                    </Button>
-                    <Button
-                        variant={filterType === 'Debit' ? 'default' : 'outline'}
-                        onClick={() => setFilterType('Debit')}
-                        size="sm"
-                        className={filterType === 'Debit' ? 'bg-destructive hover:bg-destructive/90' : ''}
-                    >
-                        Expense Only
-                    </Button>
-                </div>
-            </div>
 
-            {/* Ledger Table */}
-            <Card>
-                <div className="rounded-md border">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Date</TableHead>
-                                <TableHead>Type</TableHead>
-                                <TableHead>Entity</TableHead>
-                                <TableHead>Details</TableHead>
-                                <TableHead>Medium</TableHead>
-                                <TableHead className="text-right">Amount</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {filteredPayments.map((p) => (
-                                <TableRow key={p.id}>
-                                    <TableCell className="font-medium whitespace-nowrap">{p.date}</TableCell>
-                                    <TableCell>
-                                        <span className={`text-xs px-2 py-1 rounded-full ${p.type === 'Credit' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                            }`}>
-                                            {p.type}
-                                        </span>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="font-medium">{p.customerName}</div>
-                                        {p.dealerName && <div className="text-xs text-muted-foreground">Dealer: {p.dealerName}</div>}
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="text-sm">{p.carModel}</div>
-                                        <div className="text-xs text-muted-foreground">{p.notes || 'No notes'}</div>
-                                    </TableCell>
-                                    <TableCell className="text-muted-foreground">{p.medium}</TableCell>
-                                    <TableCell className={`text-right font-bold ${p.type === 'Credit' ? 'text-green-600' : 'text-destructive'
-                                        }`}>
-                                        {p.type === 'Debit' ? '-' : '+'}₹{p.amount}
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                            {filteredPayments.length === 0 && (
-                                <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                                        No financial records found matching your filters.
-                                    </TableCell>
-                                </TableRow>
+                <div className="bg-[#1c1917] border border-white/5 p-1 rounded-lg flex items-center">
+                    {['Overview', 'Reports', 'Invoices'].map(tab => (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveTab(tab)}
+                            className={cn(
+                                "px-4 py-1.5 text-sm font-medium rounded-md transition-all",
+                                activeTab === tab
+                                    ? "bg-[#292524] text-white shadow-sm"
+                                    : "text-slate-400 hover:text-white hover:bg-white/5"
                             )}
-                        </TableBody>
-                    </Table>
+                        >
+                            {tab}
+                        </button>
+                    ))}
                 </div>
-            </Card>
+            </div>
+
+            {/* KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Net Cashflow */}
+                <div className="bg-[#1c1917] border border-white/5 rounded-2xl p-6 relative overflow-hidden group">
+                    <div className="relative z-10">
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Net Cashflow</p>
+                        <h3 className="text-4xl font-black text-white mb-2">₹{netCashflow.toLocaleString()}</h3>
+                        <div className="flex items-center gap-2">
+                            <Badge className={cn("bg-green-500/10 text-green-500 border-0 flex items-center gap-1", netCashflow < 0 && "bg-red-500/10 text-red-500")}>
+                                {netCashflow >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                                {netCashflow >= 0 ? '+12.5%' : '-2.4%'}
+                            </Badge>
+                            <span className="text-xs text-slate-500">from last month</span>
+                        </div>
+                    </div>
+                    <Building2 className="absolute right-[-20px] bottom-[-20px] h-32 w-32 text-white/[0.03] group-hover:text-white/[0.05] transition-colors" />
+                </div>
+
+                {/* Total Income */}
+                <div className="bg-[#1c1917] border border-white/5 rounded-2xl p-6 relative overflow-hidden group">
+                    <div className="relative z-10">
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total Income</p>
+                        <h3 className="text-4xl font-black text-white mb-2">₹{totalIncome.toLocaleString()}</h3>
+                        <div className="flex items-center gap-2">
+                            <Badge className="bg-green-500/10 text-green-500 border-0 flex items-center gap-1">
+                                <TrendingUp className="h-3 w-3" />
+                                +8.2%
+                            </Badge>
+                            <span className="text-xs text-slate-500">from last month</span>
+                        </div>
+                    </div>
+                    <Wallet className="absolute right-[-20px] bottom-[-20px] h-32 w-32 text-white/[0.03] group-hover:text-white/[0.05] transition-colors" />
+                </div>
+
+                {/* Total Expenses */}
+                <div className="bg-[#1c1917] border border-white/5 rounded-2xl p-6 relative overflow-hidden group">
+                    <div className="relative z-10">
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Total Expenses</p>
+                        <h3 className="text-4xl font-black text-white mb-2">₹{totalExpenses.toLocaleString()}</h3>
+                        <div className="flex items-center gap-2">
+                            <Badge className="bg-orange-500/10 text-orange-500 border-0 flex items-center gap-1">
+                                <TrendingDown className="h-3 w-3" />
+                                +2.4%
+                            </Badge>
+                            <span className="text-xs text-slate-500">from last month</span>
+                        </div>
+                    </div>
+                    <CreditCard className="absolute right-[-20px] bottom-[-20px] h-32 w-32 text-white/[0.03] group-hover:text-white/[0.05] transition-colors" />
+                </div>
+            </div>
+
+            {/* Charts Section */}
+            <div className="bg-[#1c1917] border border-white/5 rounded-2xl p-6">
+                <div className="flex items-center justify-between mb-8">
+                    <div className="flex items-center gap-3">
+                        <div className="h-8 w-1 bg-red-600 rounded-full"></div>
+                        <h3 className="text-lg font-bold text-white">Financial Performance</h3>
+                    </div>
+                    <select className="bg-black/20 border border-white/10 rounded-lg text-sm text-slate-300 px-3 py-1.5 focus:outline-none focus:border-red-500">
+                        <option>Last 6 Months</option>
+                        <option>Last Year</option>
+                    </select>
+                </div>
+
+                <div className="h-[300px] w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={chartData}>
+                            {/* <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} /> */}
+                            <XAxis
+                                dataKey="name"
+                                axisLine={false}
+                                tickLine={false}
+                                tick={{ fill: '#64748b', fontSize: 12 }}
+                                dy={10}
+                            />
+                            <Tooltip
+                                contentStyle={{ backgroundColor: '#0c0a09', border: '1px solid #333', borderRadius: '8px' }}
+                                itemStyle={{ color: '#fff' }}
+                                cursor={{ fill: '#ffffff05' }}
+                            />
+                            <Bar dataKey="net" radius={[4, 4, 4, 4]}>
+                                {chartData.map((entry, index) => (
+                                    <Cell
+                                        key={`cell-${index}`}
+                                        fill={index === chartData.length - 1 ? '#ef4444' : '#292524'}
+                                        className="hover:opacity-80 transition-opacity cursor-pointer"
+                                    />
+                                ))}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
+            {/* Transactions List */}
+            <div className="bg-[#1c1917] border border-white/5 rounded-2xl overflow-hidden">
+                {/* Header */}
+                <div className="p-6 border-b border-white/5 flex flex-col md:flex-row gap-4 justify-between items-center">
+                    <div className="flex items-center gap-3 self-start md:self-auto">
+                        <div className="p-2 bg-red-500/10 rounded-lg">
+                            <CreditCard className="h-5 w-5 text-red-500" />
+                        </div>
+                        <h3 className="text-lg font-bold text-white">Recent Transactions</h3>
+                    </div>
+
+                    <div className="flex gap-2 w-full md:w-auto">
+                        <div className="relative flex-1 md:w-64">
+                            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                            <Input
+                                placeholder="Search transactions..."
+                                className="pl-9 bg-black/20 border-white/10 text-white placeholder:text-slate-600 focus:ring-red-500"
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                        <Button variant="outline" className="bg-black/20 border-white/10 text-slate-300 hover:text-white hover:bg-white/5">
+                            <Filter className="h-4 w-4 mr-2" /> Filter
+                        </Button>
+                        <Button variant="outline" className="bg-black/20 border-white/10 text-slate-300 hover:text-white hover:bg-white/5">
+                            <Download className="h-4 w-4 mr-2" /> Export
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Table Header */}
+                <div className="grid grid-cols-12 px-6 py-3 border-b border-white/5 bg-black/20 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    <div className="col-span-3">Transaction Details</div>
+                    <div className="col-span-2">Note</div>
+                    <div className="col-span-2">Date</div>
+                    <div className="col-span-2">Medium</div>
+                    <div className="col-span-2 text-right">Amount</div>
+                    <div className="col-span-1 text-right">Type</div>
+                </div>
+
+                {/* Table Body */}
+                <div className="divide-y divide-white/5">
+                    {filteredList.length === 0 ? (
+                        <div className="p-8 text-center text-slate-500">No transactions found.</div>
+                    ) : (
+                        filteredList.map((item) => (
+                            <div key={`${item.category}-${item.id}`} className="grid grid-cols-12 px-6 py-4 items-center hover:bg-white/[0.02] transition-colors group">
+                                {/* Details */}
+                                <div className="col-span-3 flex items-center gap-4">
+                                    <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center shrink-0", item.color)}>
+                                        <item.icon className="h-5 w-5" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <h4 className="text-sm font-bold text-white truncate">{item.heading}</h4>
+                                        <p className="text-xs text-slate-500 font-mono">Ref: {item.displayId}</p>
+                                    </div>
+                                </div>
+
+                                {/* Note */}
+                                <div className="col-span-2">
+                                    <p className="text-xs text-slate-400 truncate">{item.note || '-'}</p>
+                                </div>
+
+                                {/* Date */}
+                                <div className="col-span-2 text-sm text-slate-400">
+                                    {new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </div>
+
+                                {/* Medium */}
+                                <div className="col-span-2">
+                                    <Badge className="bg-white/5 text-slate-300 border-white/10 hover:bg-white/10">
+                                        {item.medium}
+                                    </Badge>
+                                </div>
+
+                                {/* Amount */}
+                                <div className={cn(
+                                    "col-span-2 text-right font-black text-sm",
+                                    item.type === 'Credit' ? "text-green-500" : "text-white"
+                                )}>
+                                    {item.type === 'Credit' ? '+' : '-'}₹{item.amount.toLocaleString()}
+                                </div>
+
+                                {/* Type */}
+                                <div className="col-span-1 flex justify-end items-center gap-4">
+                                    <Badge className={cn(
+                                        "border hover:bg-transparent",
+                                        item.type === 'Credit'
+                                            ? "bg-green-500/10 text-green-500 border-green-500/20"
+                                            : "bg-white/10 text-slate-400 border-white/10"
+                                    )}>
+                                        {item.type.toUpperCase().slice(0, 3)}
+                                    </Badge>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
         </div>
     )
 }

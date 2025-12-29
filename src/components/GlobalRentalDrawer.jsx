@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useDriveway } from '../context/DrivewayContext'
 import { Button } from './ui/Button'
 import { Input } from './ui/Input'
-import { Sheet, SheetHeader, SheetTitle } from './ui/Sheet'
+import { Dialog, DialogHeader, DialogTitle } from './ui/Dialog'
 
 export function GlobalRentalDrawer({ isOpen, onClose, preSelectedCarId }) {
     const { cars, customers, dealers, addTransaction, updateCar, transactions } = useDriveway()
@@ -16,14 +16,9 @@ export function GlobalRentalDrawer({ isOpen, onClose, preSelectedCarId }) {
         notes: '',
         paymentStatus: 'Pending',
         dailyRate: '',
-        endDate: '',
-        notes: '',
-        paymentStatus: 'Pending',
-        dailyRate: '',
-        paymentStatus: 'Pending',
-        dailyRate: '',
         mileage: '',
-        discount: ''
+        discount: '',
+        customDuration: ''
     })
     const [priceDetails, setPriceDetails] = useState({
         total: 0,
@@ -56,19 +51,23 @@ export function GlobalRentalDrawer({ isOpen, onClose, preSelectedCarId }) {
     }, [selectedCar])
 
     useEffect(() => {
-        if (rentalData.startDate && rentalData.endDate && selectedCar) {
-            const start = new Date(rentalData.startDate)
-            const end = new Date(rentalData.endDate)
-            const diffTime = Math.abs(end - start)
-            const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        if ((rentalData.startDate && rentalData.endDate && selectedCar) || (rentalData.customDuration && selectedCar)) {
+            let days = 0
+
+            if (rentalData.customDuration) {
+                days = parseInt(rentalData.customDuration)
+            } else if (rentalData.startDate && rentalData.endDate) {
+                const start = new Date(rentalData.startDate)
+                const end = new Date(rentalData.endDate)
+                const diffTime = Math.abs(end - start)
+                days = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+            }
 
             let price = 0
             let breakdown = []
             const currentDailyRate = rentalData.dailyRate ? parseFloat(rentalData.dailyRate) : selectedCar.price
 
             if (days > 0) {
-                let remainingDays = days
-
                 if (days >= 20 && selectedCar.monthlyPrice) {
                     const effectiveDailyRate = selectedCar.monthlyPrice / 30
                     price = Math.round((effectiveDailyRate * days) + 300)
@@ -106,7 +105,7 @@ export function GlobalRentalDrawer({ isOpen, onClose, preSelectedCarId }) {
         } else {
             setPriceDetails({ total: 0, breakdown: [] })
         }
-    }, [rentalData.startDate, rentalData.endDate, selectedCar, rentalData.dailyRate, rentalData.discount])
+    }, [rentalData.startDate, rentalData.endDate, selectedCar, rentalData.dailyRate, rentalData.discount, rentalData.customDuration])
 
     const handleSubmit = (e) => {
         e.preventDefault()
@@ -134,9 +133,7 @@ export function GlobalRentalDrawer({ isOpen, onClose, preSelectedCarId }) {
         }
 
         // Update Car Mileage if provided
-        console.log('GlobalRentalDrawer Mileage check:', rentalData.mileage)
         if (rentalData.mileage !== '' && rentalData.mileage !== null && rentalData.mileage !== undefined) {
-            console.log('GlobalRentalDrawer Updating mileage to:', rentalData.mileage)
             updateCar(selectedCar.id, { mileage: parseInt(rentalData.mileage) })
         }
 
@@ -152,21 +149,20 @@ export function GlobalRentalDrawer({ isOpen, onClose, preSelectedCarId }) {
             notes: rentalData.notes,
             breakdown: priceDetails.breakdown,
             dailyRate: rentalData.dailyRate,
-            breakdown: priceDetails.breakdown,
-            dailyRate: rentalData.dailyRate,
             startMileage: rentalData.mileage,
-            discount: rentalData.discount
+            discount: rentalData.discount,
+            customDuration: rentalData.customDuration
         })
         onClose()
         setRentalData({ carId: '', customerId: '', dealerId: '', startDate: '', endDate: '', notes: '', paymentStatus: 'Pending', dailyRate: '', mileage: '', discount: '' })
     }
 
     return (
-        <Sheet isOpen={isOpen} onClose={onClose}>
-            <SheetHeader>
-                <SheetTitle>New Rental</SheetTitle>
-            </SheetHeader>
-            <div className="mt-6">
+        <Dialog isOpen={isOpen} onClose={onClose} className="max-w-2xl">
+            <DialogHeader>
+                <DialogTitle>New Rental</DialogTitle>
+            </DialogHeader>
+            <div className="mt-4 max-h-[85vh] overflow-y-auto pr-2">
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
                         <label className="text-sm font-medium">Car</label>
@@ -175,7 +171,6 @@ export function GlobalRentalDrawer({ isOpen, onClose, preSelectedCarId }) {
                             value={rentalData.carId}
                             onChange={e => setRentalData({
                                 ...rentalData,
-                                carId: e.target.value,
                                 carId: e.target.value,
                                 dailyRate: '',
                                 mileage: '',
@@ -257,6 +252,18 @@ export function GlobalRentalDrawer({ isOpen, onClose, preSelectedCarId }) {
                             />
                         </div>
                         <div className="space-y-2">
+                            <label className="text-sm font-medium">Duration Override (Days)</label>
+                            <Input
+                                type="number"
+                                value={rentalData.customDuration}
+                                onChange={e => setRentalData({ ...rentalData, customDuration: e.target.value })}
+                                placeholder="Auto-calc if empty"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
                             <label className="text-sm font-medium">Current Mileage</label>
                             <Input
                                 type="number"
@@ -326,6 +333,6 @@ export function GlobalRentalDrawer({ isOpen, onClose, preSelectedCarId }) {
                     </Button>
                 </form>
             </div>
-        </Sheet>
+        </Dialog>
     )
 }
