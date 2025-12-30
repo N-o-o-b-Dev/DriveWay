@@ -4,26 +4,36 @@ import { Sheet, SheetHeader, SheetTitle } from './ui/Sheet'
 
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card'
 import { Button } from './ui/Button'
-import { Mail, Phone, Calendar, Car, Edit } from 'lucide-react'
+import { Mail, Phone, Calendar, Car, Edit, Banknote, PlusCircle } from 'lucide-react'
 import { EditTransactionModal } from './EditTransactionModal'
+import { AddDealerTransactionModal } from './AddDealerTransactionModal'
 
 export function DealerDetailsDrawer({ isOpen, onClose, dealer }) {
-    const { transactions, customers, cars } = useDriveway()
+    const { transactions, customers, cars, dealerTransactions } = useDriveway()
     const [editingTransaction, setEditingTransaction] = useState(null)
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false)
 
     if (!dealer) return null
 
     // Find all transactions for this dealer
-    const dealerTransactions = transactions.filter(t => t.dealerId === dealer.id)
+    const rentals = transactions.filter(t => t.dealerId === dealer.id).map(t => ({ ...t, source: 'Rental' }))
+    const manual = dealerTransactions.filter(t => t.dealerId === dealer.id).map(t => ({ ...t, source: 'Manual' }))
+
+    // Merge and Sort
+    const history = [...rentals, ...manual].sort((a, b) => {
+        const dateA = a.startDate || a.date
+        const dateB = b.startDate || b.date
+        return new Date(dateB) - new Date(dateA) // Newest first
+    })
 
     // Calculate Stats
-    const totalEarned = dealerTransactions.reduce((sum, t) => sum + (Number(t.total) || 0), 0)
-    const pendingAmount = dealerTransactions
+    const totalEarned = rentals.reduce((sum, t) => sum + (Number(t.total) || 0), 0)
+    const pendingAmount = rentals
         .filter(t => t.paymentStatus !== 'Paid')
         .reduce((sum, t) => sum + Math.max(0, (Number(t.total) || 0) - (Number(t.amountPaid) || 0)), 0)
 
-    // Get unique customer IDs for existing functionality
-    const customerIds = [...new Set(dealerTransactions.map(t => t.customerId).filter(id => id))]
+    // Get unique customer IDs
+    const customerIds = [...new Set(rentals.map(t => t.customerId).filter(id => id))]
     const dealerCustomers = customers.filter(c => customerIds.includes(c.id))
 
     return (
@@ -49,7 +59,6 @@ export function DealerDetailsDrawer({ isOpen, onClose, dealer }) {
                     </Card>
                 </div>
 
-                {/* Business Info */}
                 {/* Business Info */}
                 <Card>
                     <CardHeader className="pb-3">
@@ -114,58 +123,93 @@ export function DealerDetailsDrawer({ isOpen, onClose, dealer }) {
 
                 {/* Transactions History */}
                 <div>
-                    <h3 className="font-semibold text-lg mb-3">Transaction History</h3>
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold text-lg">Transaction History</h3>
+                        <Button size="sm" variant="outline" className="h-8 gap-2 border-black/10 dark:border-white/10 text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10" onClick={() => setIsAddModalOpen(true)}>
+                            <PlusCircle className="h-3.5 w-3.5" />
+                            Add Entry
+                        </Button>
+                    </div>
+
                     <div className="space-y-3">
-                        {dealerTransactions.length > 0 ? (
-                            dealerTransactions.map(transaction => {
-                                const car = cars.find(c => c.id === transaction.carId)
-                                return (
-                                    <Card key={transaction.id} className="overflow-hidden">
-                                        <CardContent className="p-4">
-                                            <div className="flex justify-between items-start mb-2">
-                                                <div className="flex items-center gap-2">
-                                                    <Car className="h-4 w-4 text-muted-foreground" />
-                                                    <span className="font-medium">{car ? `${car.make} ${car.model}` : 'Unknown Car'}</span>
-                                                </div>
-                                                <span className={`text-sm font-semibold ${transaction.status === 'Active' ? 'text-green-600' : 'text-gray-600'}`}>
-                                                    {transaction.status}
-                                                </span>
-                                            </div>
-
-                                            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
-                                                <Calendar className="h-4 w-4" />
-                                                {transaction.startDate} - {transaction.endDate}
-                                            </div>
-
-                                            <div className="flex justify-between items-center pt-2 border-t">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-sm font-medium">₹{transaction.total}</span>
-                                                    {(Number(transaction.amountPaid) > 0 && transaction.paymentStatus !== 'Paid') && (
-                                                        <span className="text-xs text-muted-foreground">
-                                                            (Paid: ₹{transaction.amountPaid})
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <span className={`text-xs px-2 py-1 rounded-full ${transaction.paymentStatus === 'Paid' ? 'bg-green-100 text-green-800' :
-                                                        transaction.paymentStatus === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                            'bg-red-100 text-red-800'
-                                                        }`}>
-                                                        {transaction.paymentStatus || 'Pending'}
+                        {history.length > 0 ? (
+                            history.map(item => {
+                                if (item.source === 'Rental') {
+                                    // RENTAL CARD
+                                    const car = cars.find(c => c.id === item.carId)
+                                    return (
+                                        <Card key={item.id} className="overflow-hidden border-l-4 border-l-blue-500">
+                                            <CardContent className="p-4">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <Car className="h-4 w-4 text-muted-foreground" />
+                                                        <span className="font-medium">{car ? `${car.make} ${car.model}` : 'Unknown Car'}</span>
+                                                        <span className="text-[10px] bg-blue-500/10 text-blue-500 px-1.5 py-0.5 rounded uppercase font-bold">Rental</span>
+                                                    </div>
+                                                    <span className={`text-sm font-semibold ${item.status === 'Active' ? 'text-green-600' : 'text-gray-600'}`}>
+                                                        {item.status}
                                                     </span>
+                                                </div>
+
+                                                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
+                                                    <Calendar className="h-4 w-4" />
+                                                    {item.startDate}
+                                                </div>
+
+                                                <div className="flex justify-between items-center pt-2 border-t">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-sm font-medium">₹{item.total}</span>
+                                                    </div>
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"
                                                         className="h-6 w-6"
-                                                        onClick={() => setEditingTransaction(transaction)}
+                                                        onClick={() => setEditingTransaction(item)}
                                                     >
                                                         <Edit className="h-3 w-3" />
                                                     </Button>
                                                 </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                )
+                                            </CardContent>
+                                        </Card>
+                                    )
+                                } else {
+                                    // MANUAL ENTRY CARD
+                                    const car = cars.find(c => c.id === item.carId)
+                                    const isCredit = item.type === 'Credit'
+                                    return (
+                                        <Card key={item.id} className={`overflow-hidden border-l-4 ${isCredit ? 'border-l-green-500' : 'border-l-red-500'}`}>
+                                            <CardContent className="p-4">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <Banknote className={`h-4 w-4 ${isCredit ? 'text-green-500' : 'text-red-500'}`} />
+                                                        <span className="font-medium">{item.notes || (isCredit ? 'Manual Credit' : 'Manual Debit')}</span>
+                                                    </div>
+                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-bold ${isCredit ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                                                        {item.type}
+                                                    </span>
+                                                </div>
+
+                                                {car && (
+                                                    <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                                                        <Car className="h-3 w-3" />
+                                                        {car.make} {car.model}
+                                                    </div>
+                                                )}
+
+                                                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
+                                                    <Calendar className="h-4 w-4" />
+                                                    {new Date(item.date).toLocaleString()}
+                                                </div>
+
+                                                <div className="pt-2 border-t">
+                                                    <span className={`text-sm font-bold ${isCredit ? 'text-green-500' : 'text-red-500'}`}>
+                                                        {isCredit ? '+' : '-'} ₹{Number(item.amount).toLocaleString()}
+                                                    </span>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    )
+                                }
                             })
                         ) : (
                             <p className="text-sm text-muted-foreground">No transactions found.</p>
@@ -207,6 +251,12 @@ export function DealerDetailsDrawer({ isOpen, onClose, dealer }) {
                 isOpen={!!editingTransaction}
                 onClose={() => setEditingTransaction(null)}
                 transaction={editingTransaction}
+            />
+
+            <AddDealerTransactionModal
+                isOpen={isAddModalOpen}
+                onClose={() => setIsAddModalOpen(false)}
+                dealer={dealer}
             />
 
         </Sheet>

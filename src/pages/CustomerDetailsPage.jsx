@@ -8,10 +8,11 @@ import { Dialog, DialogHeader, DialogTitle } from '../components/ui/Dialog'
 import {
     Mail, Phone, Calendar, Car, Edit, ArrowLeft, User, ExternalLink, Store,
     CreditCard, CheckCircle, AlertCircle, Clock, FileText, Download, ChevronRight,
-    TrendingUp, MapPin, Gauge, MoreHorizontal, Plus, ShieldCheck
+    TrendingUp, MapPin, Gauge, MoreHorizontal, Plus, ShieldCheck, Banknote, PlusCircle
 } from 'lucide-react'
 import { EditCustomerModal } from '../components/EditCustomerModal'
 import { EditTransactionModal } from '../components/EditTransactionModal'
+import { AddCustomerTransactionModal } from '../components/AddCustomerTransactionModal'
 import { cn } from '../lib/utils'
 
 function StatWidget({ title, value, icon: Icon, trend, colorClass }) {
@@ -184,15 +185,17 @@ function DocumentRow({ title, date, size, type }) {
 export function CustomerDetailsPage() {
     const { id } = useParams()
     const navigate = useNavigate()
-    const { customers, transactions, dealers, cars, updateTransaction, updateCar } = useDriveway()
+    const { customers, transactions, dealers, cars, updateTransaction, updateCar, manualCustomerTransactions } = useDriveway()
 
     // State
     const [activeTab, setActiveTab] = useState('transactions')
     const [smartPaymentOpen, setSmartPaymentOpen] = useState(false)
     const [paymentAmount, setPaymentAmount] = useState('')
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false)
 
     const [editingTransaction, setEditingTransaction] = useState(null)
     const [rentalPage, setRentalPage] = useState(1)
+    const [transactionPage, setTransactionPage] = useState(1)
     const [editingCustomer, setEditingCustomer] = useState(null)
 
     // Extend Modal State
@@ -203,10 +206,21 @@ export function CustomerDetailsPage() {
     const customer = customers.find(c => c.id === id)
 
     // Derived Data
-    const customerTransactions = useMemo(() =>
-        transactions.filter(t => t.customerId === id).sort((a, b) => new Date(b.startDate) - new Date(a.startDate)),
-        [transactions, id]
-    )
+    // Derived Data
+    const customerTransactions = useMemo(() => {
+        // 1. Get Rentals
+        const rentals = transactions
+            .filter(t => t.customerId === id)
+            .map(t => ({ ...t, isRental: true, date: t.startDate }))
+
+        // 2. Get Manual Transactions
+        const manuals = manualCustomerTransactions
+            .filter(t => t.customerId === id)
+            .map(t => ({ ...t, isRental: false, total: t.amount }))
+
+        // 3. Merge and Sort
+        return [...rentals, ...manuals].sort((a, b) => new Date(b.date) - new Date(a.date))
+    }, [transactions, manualCustomerTransactions, id])
 
     const activeRentalTrans = customerTransactions.find(t => {
         const now = new Date()
@@ -224,8 +238,18 @@ export function CustomerDetailsPage() {
     )
 
     // Financials
-    const totalSpent = customerTransactions.reduce((sum, t) => sum + (Number(t.total) || 0), 0)
-    const totalPaid = customerTransactions.reduce((sum, t) => sum + (Number(t.amountPaid) || 0), 0)
+    const totalSpent = customerTransactions.reduce((sum, t) => {
+        if (t.isRental) return sum + (Number(t.total) || 0)
+        // For manual transactions: Debit increases what they OWE (Spent/Billed)
+        return t.type === 'Debit' ? sum + (Number(t.amount) || 0) : sum
+    }, 0)
+
+    const totalPaid = customerTransactions.reduce((sum, t) => {
+        if (t.isRental) return sum + (Number(t.amountPaid) || 0)
+        // For manual transactions: Credit increases what they have PAID
+        return t.type === 'Credit' ? sum + (Number(t.amount) || 0) : sum
+    }, 0)
+
     const pendingAmount = Math.max(0, totalSpent - totalPaid)
 
     // Actions
@@ -464,42 +488,123 @@ export function CustomerDetailsPage() {
                     <div className="bg-[#1c1917] border border-white/5 rounded-xl overflow-hidden min-h-[300px]">
                         {activeTab.includes('transaction') && (
                             <div className="divide-y divide-white/5">
-                                {/* Header */}
+                                {/* Header with Add Button */}
+                                <div className="flex items-center justify-between bg-[#292524]/50 p-4 border-b border-white/5">
+                                    <div className="flex items-center gap-2">
+                                        <FileText className="h-5 w-5 text-red-500" />
+                                        <h3 className="font-bold text-white text-sm">Transaction History</h3>
+                                    </div>
+                                    <Button size="sm" variant="outline" onClick={() => setIsAddModalOpen(true)} className="h-7 gap-2 border-black/10 dark:border-white/10 text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10">
+                                        <PlusCircle className="h-3 w-3" />
+                                        Add Entry
+                                    </Button>
+                                </div>
+
+                                {/* Table Header */}
                                 <div className="grid grid-cols-5 bg-[#292524]/50 p-4 text-[10px] uppercase font-bold text-gray-500 tracking-wider">
+                                    <div>Description</div>
                                     <div>Date</div>
-                                    <div>Transaction ID</div>
-                                    <div>Status</div>
-                                    <div className="text-right">Amount</div>
-                                    <div></div>
+                                    <div>Amount</div>
+                                    <div className="text-center">Status / Type</div>
+                                    <div className="text-right">Actions</div>
                                 </div>
                                 {/* Rows */}
-                                {customerTransactions.map(t => (
-                                    <div key={t.id} className="grid grid-cols-5 p-4 items-center hover:bg-white/5 transition-colors">
-                                        <div className="text-sm text-gray-300">{new Date(t.startDate).toLocaleDateString()}</div>
-                                        <div className="text-sm text-gray-500 font-mono">#{t.id.slice(1, 8)}</div>
-                                        <div>
-                                            <span className={cn(
-                                                "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border",
-                                                t.paymentStatus === 'Paid' ? "bg-green-500/10 text-green-500 border-green-500/20" :
-                                                    t.paymentStatus === 'Partial' ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/20" :
-                                                        "bg-red-500/10 text-red-500 border-red-500/20"
+                                {customerTransactions
+                                    .slice((transactionPage - 1) * 5, transactionPage * 5)
+                                    .map(t => {
+                                        const car = t.carId ? cars.find(c => c.id === t.carId) : null
+
+                                        // RENTAL ROW
+                                        if (t.isRental) {
+                                            return (
+                                                <div key={t.id} className="grid grid-cols-5 p-4 items-center hover:bg-white/5 transition-colors border-l-2 border-l-blue-500/0 hover:border-l-blue-500">
+                                                    <div className="flex flex-col justify-center">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <Car className="h-3 w-3 text-blue-500" />
+                                                            <span className="font-bold text-white text-sm truncate max-w-[120px]">{car ? `${car.make} ${car.model}` : 'Unknown Car'}</span>
+                                                        </div>
+                                                        <span className="text-[10px] text-gray-500 font-mono">Rental #{t.id.slice(0, 8)}</span>
+                                                    </div>
+                                                    <div className="text-sm text-gray-400">{new Date(t.date).toLocaleDateString()}</div>
+                                                    <div className="text-sm font-bold text-white">₹{Number(t.total).toLocaleString()}</div>
+                                                    <div className="text-center">
+                                                        <span className={cn(
+                                                            "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border",
+                                                            t.paymentStatus === 'Paid' ? "bg-green-500/10 text-green-500 border-green-500/20" :
+                                                                t.paymentStatus === 'Partial' ? "bg-yellow-500/10 text-yellow-500 border-yellow-500/20" :
+                                                                    "bg-red-500/10 text-red-500 border-red-500/20"
+                                                        )}>
+                                                            {t.paymentStatus || 'Pending'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-6 w-6 text-gray-500 hover:text-white"
+                                                            onClick={() => setEditingTransaction(t)}
+                                                        >
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            )
+                                        }
+
+                                        // MANUAL ROW
+                                        const isCredit = t.type === 'Credit'
+                                        return (
+                                            <div key={t.id} className={cn(
+                                                "grid grid-cols-5 p-4 items-center hover:bg-white/5 transition-colors border-l-2",
+                                                isCredit ? "border-l-green-500/50" : "border-l-red-500/50"
                                             )}>
-                                                {t.paymentStatus || 'Pending'}
-                                            </span>
-                                        </div>
-                                        <div className="text-sm font-bold text-white text-right">₹{t.total}</div>
-                                        <div className="text-right">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-6 w-6 text-gray-500 hover:text-white"
-                                                onClick={() => setEditingTransaction(t)}
-                                            >
-                                                <MoreHorizontal className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    </div>
-                                ))}
+                                                <div className="flex flex-col justify-center">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <Banknote className={cn("h-3 w-3", isCredit ? "text-green-500" : "text-red-500")} />
+                                                        <span className="font-bold text-white text-sm truncate max-w-[120px]">
+                                                            {t.notes || (isCredit ? 'Manual Credit' : 'Manual Debit')}
+                                                        </span>
+                                                    </div>
+                                                    {car && <span className="text-[10px] text-gray-500">Re: {car.make} {car.model}</span>}
+                                                </div>
+                                                <div className="text-sm text-gray-400">{new Date(t.date).toLocaleDateString()}</div>
+                                                <div className={cn("text-sm font-bold", isCredit ? "text-green-500" : "text-red-500")}>
+                                                    {isCredit ? '+' : '-'} ₹{Number(t.amount).toLocaleString()}
+                                                </div>
+                                                <div className="text-center">
+                                                    <span className={cn(
+                                                        "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border",
+                                                        isCredit ? "bg-green-500/10 text-green-500 border-green-500/20" : "bg-red-500/10 text-red-500 border-red-500/20"
+                                                    )}>
+                                                        {t.type.toUpperCase()}
+                                                    </span>
+                                                </div>
+                                                <div className="text-right">
+                                                    {/* No action for manual yet */}
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+
+                                {/* Pagination Controls */}
+                                <div className="p-4 border-t border-white/5 flex justify-end gap-2 bg-[#292524]/30">
+                                    <Button
+                                        size="sm" variant="outline"
+                                        disabled={transactionPage === 1}
+                                        onClick={() => setTransactionPage(p => Math.max(1, p - 1))}
+                                        className="h-8 w-8 p-0 border-white/10 hover:bg-white/5 hover:text-white"
+                                    >
+                                        <ChevronRight className="h-4 w-4 rotate-180" />
+                                    </Button>
+                                    <Button
+                                        size="sm" variant="outline"
+                                        disabled={transactionPage * 5 >= customerTransactions.length}
+                                        onClick={() => setTransactionPage(p => p + 1)}
+                                        className="h-8 w-8 p-0 border-white/10 hover:bg-white/5 hover:text-white"
+                                    >
+                                        <ChevronRight className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </div>
                         )}
                         {/* Other tabs placeholders */}
@@ -515,7 +620,7 @@ export function CustomerDetailsPage() {
                                     {paginatedRentalHistory.map(t => {
                                         const car = cars.find(c => c.id === t.carId)
                                         return (
-                                            <div key={t.id} className="grid grid-cols-5 p-4 items-center hover:bg-white/5 transition-colors">
+                                            <div key={t.id} onClick={() => setEditingTransaction(t)} className="grid grid-cols-5 p-4 items-center hover:bg-white/5 transition-colors cursor-pointer">
                                                 <div className="col-span-2 flex items-center gap-3">
                                                     <div className="h-10 w-16 bg-[#292524] rounded overflow-hidden border border-white/5">
                                                         {car?.image ? <img src={car.image} className="w-full h-full object-cover" /> : <Car className="h-full w-full p-2 text-gray-600" />}
@@ -701,6 +806,12 @@ export function CustomerDetailsPage() {
                 isOpen={!!editingTransaction}
                 onClose={() => setEditingTransaction(null)}
                 transaction={editingTransaction}
+            />
+
+            <AddCustomerTransactionModal
+                isOpen={isAddModalOpen}
+                onClose={() => setIsAddModalOpen(false)}
+                customer={customer}
             />
 
         </div>

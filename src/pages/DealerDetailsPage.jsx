@@ -8,45 +8,69 @@ import { Input } from '../components/ui/Input'
 import {
     Mail, Phone, Calendar, Car, Edit, ArrowLeft, Download, CreditCard,
     Wallet, CheckCircle, AlertCircle, Users, MapPin, Building, FileText, Search, Plus, MoreHorizontal,
-    User as UserIcon, Folder
+    User as UserIcon, Folder, Banknote, PlusCircle
 } from 'lucide-react'
 import { EditTransactionModal } from '../components/EditTransactionModal'
+import { AddDealerTransactionModal } from '../components/AddDealerTransactionModal'
 import { cn } from '../lib/utils'
 
 export function DealerDetailsPage() {
     const { id } = useParams()
     const navigate = useNavigate()
-    const { transactions, dealers, customers, cars } = useDriveway()
+    const { transactions, dealers, customers, cars, dealerTransactions } = useDriveway()
     const [editingTransaction, setEditingTransaction] = useState(null)
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false)
 
     // Derived State
     const dealer = useMemo(() => dealers.find(d => d.id === id), [dealers, id])
 
-    // Sorted Transactions
-    const dealerTransactions = useMemo(() => {
+    // Merged Transactions (Rentals + Manual)
+    const history = useMemo(() => {
         if (!dealer) return []
-        return transactions
-            .filter(t => t.dealerId === dealer.id)
-            .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
-    }, [dealer, transactions])
+        const rentals = transactions.filter(t => t.dealerId === dealer.id).map(t => ({ ...t, source: 'Rental' }))
+        const manual = dealerTransactions.filter(t => t.dealerId === dealer.id).map(t => ({ ...t, source: 'Manual' }))
 
-    // Stats Calculations
+        return [...rentals, ...manual].sort((a, b) => {
+            const dateA = a.startDate || a.date
+            const dateB = b.startDate || b.date
+            return new Date(dateB) - new Date(dateA)
+        })
+    }, [dealer, transactions, dealerTransactions])
+
+    // Stats Calculations - Corrected for Credit/Debit
     const stats = useMemo(() => {
         if (!dealer) return { total: 0, paid: 0, pending: 0, customers: 0 }
 
-        const dealerTrans = dealerTransactions.filter(t => t.status !== 'Cancelled')
-        const total = dealerTrans.reduce((sum, t) => sum + (Number(t.total) || 0), 0)
-        const paid = dealerTrans.reduce((sum, t) => sum + (Number(t.amountPaid) || 0), 0)
-        const pending = dealerTrans.reduce((sum, t) => {
-            const tTotal = Number(t.total) || 0
-            const tPaid = Number(t.amountPaid) || 0
-            return sum + Math.max(0, tTotal - tPaid)
-        }, 0)
+        // 1. Rentals
+        const relatedRentals = transactions.filter(t => t.dealerId === dealer.id && t.status !== 'Cancelled')
+        const rentalTotal = relatedRentals.reduce((sum, t) => sum + (Number(t.total) || 0), 0)
+        const rentalPaid = relatedRentals.reduce((sum, t) => sum + (Number(t.amountPaid) || 0), 0)
 
-        const uniqueCustomers = new Set(dealerTrans.map(t => t.customerId).filter(Boolean)).size
+        // 2. Manual Transactions
+        const relatedManual = dealerTransactions.filter(t => t.dealerId === dealer.id)
+        const manualDebits = relatedManual
+            .filter(t => t.type === 'Debit')
+            .reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
+
+        const manualCredits = relatedManual
+            .filter(t => t.type === 'Credit')
+            .reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
+
+        // 3. Totals
+        const total = rentalTotal + manualDebits // Total Billed / Value Generated
+        const paid = rentalPaid + manualCredits  // Total Paid to Dealer (if tracking that way)
+
+        // OR: Based on user request layout: "total debit - credit"
+        // Let's assume:
+        // Total Amount: Value generated (Rentals + Debits)
+        // Paid Amount: Money given (Rentals Paid + Credits)
+        // Pending: Total - Paid
+        const pending = Math.max(0, total - paid)
+
+        const uniqueCustomers = new Set(relatedRentals.map(t => t.customerId).filter(Boolean)).size
 
         return { total, paid, pending, customers: uniqueCustomers }
-    }, [dealer, transactions])
+    }, [dealer, transactions, dealerTransactions])
 
     // Tabs / Pagination State
     const [customerPage, setCustomerPage] = useState(1)
@@ -342,53 +366,90 @@ export function DealerDetailsPage() {
 
                         {/* Transaction History */}
                         <Card className="bg-[#1c1917] border-white/5 h-full">
-                            <div className="p-6 border-b border-white/5 flex items-center gap-2">
-                                <FileText className="h-5 w-5 text-red-500" />
-                                <h3 className="font-bold text-white">History</h3>
+                            <div className="p-6 border-b border-white/5 flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <FileText className="h-5 w-5 text-red-500" />
+                                    <h3 className="font-bold text-white">History</h3>
+                                </div>
+                                <Button size="sm" variant="outline" onClick={() => setIsAddModalOpen(true)} className="h-8 gap-2 border-black/10 dark:border-white/10 text-black dark:text-white hover:bg-black/5 dark:hover:bg-white/10">
+                                    <PlusCircle className="h-3.5 w-3.5" />
+                                    Add Entry
+                                </Button>
                             </div>
                             <div className="p-0 overflow-x-auto">
                                 <table className="w-full text-sm text-left">
                                     <thead className="text-xs text-gray-500 uppercase bg-[#292524] border-b border-white/5">
                                         <tr>
-                                            <th className="px-4 py-3 font-medium">Vehicle</th>
+                                            <th className="px-4 py-3 font-medium">Description</th>
+                                            <th className="px-4 py-3 font-medium">Date</th>
                                             <th className="px-4 py-3 font-medium">Amount</th>
-                                            <th className="px-4 py-3 font-medium text-center">Status</th>
+                                            <th className="px-4 py-3 font-medium text-center">Status/Type</th>
                                             <th className="px-4 py-3 font-medium text-right">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-white/5">
-                                        {dealerTransactions
+                                        {history
                                             .slice((transactionPage - 1) * ITEMS_PER_PAGE, transactionPage * ITEMS_PER_PAGE)
-                                            .map(t => {
-                                                const car = cars.find(c => c.id === t.carId)
-                                                return (
-                                                    <tr key={t.id} className="hover:bg-white/5 transition-colors">
-                                                        <td className="px-4 py-3 font-medium text-white">
-                                                            <div className="truncate max-w-[120px]">{car ? `${car.make} ${car.model}` : 'Unknown'}</div>
-                                                            <div className="text-[10px] text-gray-500">{new Date(t.startDate).toLocaleDateString()}</div>
-                                                        </td>
-                                                        <td className="px-4 py-3 text-white font-bold">₹{Number(t.total).toLocaleString()}</td>
-                                                        <td className="px-4 py-3 text-center">
-                                                            <Badge className={cn(
-                                                                "text-[10px]",
-                                                                t.paymentStatus === 'Paid' ? "bg-green-500/10 text-green-500" :
-                                                                    t.paymentStatus === 'Pending' ? "bg-yellow-500/10 text-yellow-500" : "bg-red-500/10 text-red-500"
-                                                            )}>
-                                                                {t.paymentStatus || 'Pending'}
-                                                            </Badge>
-                                                        </td>
-                                                        <td className="px-4 py-3 text-right">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="h-8 w-8 p-0 hover:bg-white/10"
-                                                                onClick={() => setEditingTransaction(t)}
-                                                            >
-                                                                <MoreHorizontal className="h-4 w-4 text-gray-400" />
-                                                            </Button>
-                                                        </td>
-                                                    </tr>
-                                                )
+                                            .map(item => {
+                                                const car = cars.find(c => c.id === item.carId)
+                                                const isRental = item.source === 'Rental'
+
+                                                if (isRental) {
+                                                    // RENTAL ROW
+                                                    return (
+                                                        <tr key={item.id} className="hover:bg-white/5 transition-colors border-l-2 border-l-blue-500/0 hover:border-l-blue-500">
+                                                            <td className="px-4 py-3 font-medium text-white">
+                                                                <div className="flex items-center gap-2">
+                                                                    <Car className="h-3 w-3 text-blue-500" />
+                                                                    <span className="truncate max-w-[150px] font-bold">{car ? `${car.make} ${car.model}` : 'Unknown Car'}</span>
+                                                                </div>
+                                                                <div className="text-[10px] text-gray-500 pl-5">Rental #{item.id.slice(0, 6)}</div>
+                                                            </td>
+                                                            <td className="px-4 py-3 text-gray-400 text-xs">{item.startDate ? new Date(item.startDate).toLocaleDateString() : 'N/A'}</td>
+                                                            <td className="px-4 py-3 text-white font-bold">₹{Number(item.total).toLocaleString()}</td>
+                                                            <td className="px-4 py-3 text-center">
+                                                                <Badge className={cn(
+                                                                    "text-[10px]",
+                                                                    item.paymentStatus === 'Paid' ? "bg-green-500/10 text-green-500" :
+                                                                        item.paymentStatus === 'Pending' ? "bg-yellow-500/10 text-yellow-500" : "bg-red-500/10 text-red-500"
+                                                                )}>
+                                                                    {item.paymentStatus || 'Pending'}
+                                                                </Badge>
+                                                            </td>
+                                                            <td className="px-4 py-3 text-right">
+                                                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-white/10" onClick={() => setEditingTransaction(item)}>
+                                                                    <Edit className="h-4 w-4 text-gray-400" />
+                                                                </Button>
+                                                            </td>
+                                                        </tr>
+                                                    )
+                                                } else {
+                                                    // MANUAL ROW
+                                                    const isCredit = item.type === 'Credit'
+                                                    return (
+                                                        <tr key={item.id} className={`hover:bg-white/5 transition-colors border-l-2 ${isCredit ? 'border-l-green-500/50' : 'border-l-red-500/50'}`}>
+                                                            <td className="px-4 py-3 font-medium text-white">
+                                                                <div className="flex items-center gap-2">
+                                                                    <Banknote className={`h-3 w-3 ${isCredit ? 'text-green-500' : 'text-red-500'}`} />
+                                                                    <span className="truncate max-w-[150px] font-bold">{item.notes || (isCredit ? 'Manual Credit' : 'Manual Debit')}</span>
+                                                                </div>
+                                                                {car && <div className="text-[10px] text-gray-500 pl-5">Re: {car.make} {car.model}</div>}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-gray-400 text-xs">{item.date ? new Date(item.date).toLocaleDateString() : 'N/A'}</td>
+                                                            <td className={`px-4 py-3 font-bold ${isCredit ? 'text-green-500' : 'text-red-500'}`}>
+                                                                {isCredit ? '+' : '-'} ₹{Number(item.amount).toLocaleString()}
+                                                            </td>
+                                                            <td className="px-4 py-3 text-center">
+                                                                <Badge className={`text-[10px] ${isCredit ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                                                                    {item.type.toUpperCase()}
+                                                                </Badge>
+                                                            </td>
+                                                            <td className="px-4 py-3 text-right">
+                                                                {/* Edit manual transaction? Maybe later. For now just view. */}
+                                                            </td>
+                                                        </tr>
+                                                    )
+                                                }
                                             })
                                         }
                                     </tbody>
@@ -421,6 +482,12 @@ export function DealerDetailsPage() {
                 isOpen={!!editingTransaction}
                 onClose={() => setEditingTransaction(null)}
                 transaction={editingTransaction}
+            />
+
+            <AddDealerTransactionModal
+                isOpen={isAddModalOpen}
+                onClose={() => setIsAddModalOpen(false)}
+                dealer={dealer}
             />
         </div >
     )

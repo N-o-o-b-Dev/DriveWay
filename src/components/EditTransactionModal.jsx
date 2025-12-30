@@ -26,6 +26,7 @@ export function EditTransactionModal({ isOpen, onClose, transaction }) {
         customDuration: '',
         additionalCharges: 0,
         discount: 0,
+        discountNote: '',
         dealerLocation: ''
     })
 
@@ -67,6 +68,7 @@ export function EditTransactionModal({ isOpen, onClose, transaction }) {
                 customDuration: transaction.customDuration || '',
                 additionalCharges: transaction.additionalCharges || 0,
                 discount: transaction.discount || 0,
+                discountNote: transaction.discountNote || '',
                 dealerLocation: transaction.dealerLocation || (dealer ? dealer.address : '')
             })
         }
@@ -217,6 +219,16 @@ export function EditTransactionModal({ isOpen, onClose, transaction }) {
                             </select>
                         </div>
 
+                        <div className="space-y-2">
+                            <label className="text-xs text-slate-400">Notes</label>
+                            <textarea
+                                className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-red-500 min-h-[60px]"
+                                value={formData.notes}
+                                placeholder="Add notes about this rental..."
+                                onChange={e => setFormData({ ...formData, notes: e.target.value })}
+                            />
+                        </div>
+
 
                         {/* Section: Timeline */}
                         <div>
@@ -315,21 +327,29 @@ export function EditTransactionModal({ isOpen, onClose, transaction }) {
                                     <span className="text-slate-400">Base Rate ({getDays()} days)</span>
                                     <span className="font-bold">₹{(Number(formData.total) - Number(formData.additionalCharges) + Number(formData.discount)).toLocaleString()}</span>
                                 </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-slate-400">Discount</span>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-slate-500">₹</span>
-                                        <input
-                                            className="w-20 bg-black/20 border border-white/10 rounded px-2 py-1 text-right text-white text-sm"
-                                            type="number"
-                                            value={formData.discount}
-                                            onChange={e => {
-                                                const newDiscount = e.target.value
-                                                const newTotal = calculateTotal(formData.startDate, formData.endDate, formData.customDuration, formData.additionalCharges, newDiscount)
-                                                setFormData({ ...formData, discount: newDiscount, total: newTotal })
-                                            }}
-                                        />
+                                <div className="space-y-1">
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-slate-400">Discount</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-slate-500">₹</span>
+                                            <input
+                                                className="w-20 bg-black/20 border border-white/10 rounded px-2 py-1 text-right text-white text-sm"
+                                                type="number"
+                                                value={formData.discount}
+                                                onChange={e => {
+                                                    const newDiscount = e.target.value
+                                                    const newTotal = calculateTotal(formData.startDate, formData.endDate, formData.customDuration, formData.additionalCharges, newDiscount)
+                                                    setFormData({ ...formData, discount: newDiscount, total: newTotal })
+                                                }}
+                                            />
+                                        </div>
                                     </div>
+                                    <input
+                                        className="w-full bg-transparent border-b border-white/10 text-[10px] text-slate-400 focus:outline-none focus:border-red-500 placeholder:text-slate-600 pb-1"
+                                        placeholder="Reason for discount (optional)"
+                                        value={formData.discountNote}
+                                        onChange={e => setFormData({ ...formData, discountNote: e.target.value })}
+                                    />
                                 </div>
                                 <div className="flex justify-between items-center text-sm">
                                     <span className="text-slate-400">Additional Charges</span>

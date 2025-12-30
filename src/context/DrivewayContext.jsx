@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { database } from '../lib/firebase'
-import { ref, onValue, push, update, remove } from 'firebase/database'
+import { ref, onValue, push, update, remove, query, limitToLast } from 'firebase/database'
 import { generateUniqueId } from '../lib/utils'
 import { useAuth } from './AuthContext'
 
@@ -14,6 +14,8 @@ export function DrivewayProvider({ children }) {
     const [transactions, setTransactions] = useState([])
     const [maintenanceRecords, setMaintenanceRecords] = useState([])
     const [registers, setRegisters] = useState([])
+    const [dealerTransactions, setDealerTransactions] = useState([])
+    const [manualCustomerTransactions, setManualCustomerTransactions] = useState([])
     const [isLoading, setIsLoading] = useState(true)
 
     // Helper to convert Firebase object to array
@@ -38,12 +40,17 @@ export function DrivewayProvider({ children }) {
 
         setIsLoading(true)
 
+        // Basic Refs (Entities - keep full list for lookups)
         const carsRef = ref(database, 'cars')
         const customersRef = ref(database, 'customers')
         const dealersRef = ref(database, 'dealers')
-        const transactionsRef = ref(database, 'transactions')
-        const maintenanceRef = ref(database, 'maintenanceRecords')
-        const registersRef = ref(database, 'registers')
+
+        // Heavy Data - Limit to last 100 to save bandwidth
+        const transactionsRef = query(ref(database, 'transactions'), limitToLast(100))
+        const maintenanceRef = query(ref(database, 'maintenanceRecords'), limitToLast(100))
+        const registersRef = query(ref(database, 'registers'), limitToLast(100))
+        const dealerTransactionsRef = query(ref(database, 'dealerTransactions'), limitToLast(100))
+        const manualCustomerTransactionsRef = query(ref(database, 'manualCustomerTransactions'), limitToLast(100))
 
         // We use a counter to track initial loads to turn off the global loading spinner
         let loadedCount = 0
@@ -78,6 +85,12 @@ export function DrivewayProvider({ children }) {
             setRegisters(snapshotToArray(snapshot))
             checkLoaded()
         })
+        const unsubDealerTransactions = onValue(dealerTransactionsRef, (snapshot) => {
+            setDealerTransactions(snapshotToArray(snapshot))
+        })
+        const unsubManualCustomerTransactions = onValue(manualCustomerTransactionsRef, (snapshot) => {
+            setManualCustomerTransactions(snapshotToArray(snapshot))
+        })
 
         return () => {
             unsubCars()
@@ -86,6 +99,8 @@ export function DrivewayProvider({ children }) {
             unsubTransactions()
             unsubMaintenance()
             unsubRegisters()
+            unsubDealerTransactions()
+            unsubManualCustomerTransactions()
         }
     }, [currentUser])
 
@@ -239,6 +254,20 @@ export function DrivewayProvider({ children }) {
         })
     }
 
+    const addDealerTransaction = (transaction) => {
+        push(ref(database, 'dealerTransactions'), {
+            ...transaction,
+            createdAt: new Date().toISOString()
+        })
+    }
+
+    const addCustomerTransaction = (transaction) => {
+        push(ref(database, 'manualCustomerTransactions'), {
+            ...transaction,
+            createdAt: new Date().toISOString()
+        })
+    }
+
     // Computed Cars with Dynamic Status
     const derivedCars = cars.map(car => {
         let status = car.status // key fallback
@@ -325,6 +354,10 @@ export function DrivewayProvider({ children }) {
             deleteRegister: (id) => remove(ref(database, `registers/${id}`)),
             deleteWorkshop,
             renameWorkshop,
+            dealerTransactions,
+            addDealerTransaction,
+            manualCustomerTransactions,
+            addCustomerTransaction,
             isLoading,
         }}>
             {children}
