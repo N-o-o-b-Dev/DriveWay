@@ -185,7 +185,7 @@ function DocumentRow({ title, date, size, type }) {
 export function CustomerDetailsPage() {
     const { id } = useParams()
     const navigate = useNavigate()
-    const { customers, transactions, dealers, cars, updateTransaction, updateCar, manualCustomerTransactions } = useDriveway()
+    const { customers, transactions, dealers, cars, updateTransaction, updateCar, manualCustomerTransactions, addRegister } = useDriveway()
 
     // State
     const [activeTab, setActiveTab] = useState('transactions')
@@ -270,6 +270,15 @@ export function CustomerDetailsPage() {
         updateCar(activeRentalCar.id, {
             ...activeRentalCar,
             status: 'Available'
+        })
+
+        // 3. Add Register Entry (Auto)
+        addRegister({
+            carId: activeRentalCar.id,
+            customerId: customer.id,
+            date: now,
+            type: 'Entry',
+            notes: 'Auto-generated from Rental Return'
         })
     }
 

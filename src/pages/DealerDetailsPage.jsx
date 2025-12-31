@@ -321,7 +321,11 @@ export function DealerDetailsPage() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-white/5">
-                                        {customers.filter(c => dealerTransactions.some(t => t.customerId === c.id))
+                                        {customers.filter(c => {
+                                            const hasRental = transactions.some(t => t.dealerId === dealer.id && t.customerId === c.id)
+                                            const hasManual = dealerTransactions.some(t => t.dealerId === dealer.id && t.customerId === c.id)
+                                            return hasRental || hasManual
+                                        })
                                             .slice((customerPage - 1) * 5, customerPage * 5)
                                             .map(cust => (
                                                 <tr key={cust.id} className="hover:bg-white/5 transition-colors">

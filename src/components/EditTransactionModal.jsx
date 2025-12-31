@@ -153,7 +153,7 @@ export function EditTransactionModal({ isOpen, onClose, transaction }) {
                     </div>
                 </DialogHeader>
 
-                <div className="grid grid-cols-1 md:grid-cols-12 h-[calc(90vh-80px)]">
+                <div className="grid grid-cols-1 md:grid-cols-12 h-[calc(90vh-160px)]">
                     {/* LEFT COLUMN: Entities & Timeline */}
                     <div className="md:col-span-7 border-r border-white/10 p-6 space-y-6 overflow-y-auto">
 
@@ -314,7 +314,7 @@ export function EditTransactionModal({ isOpen, onClose, transaction }) {
 
 
                     {/* RIGHT COLUMN: Financials & Payment Action */}
-                    <div className="md:col-span-5 p-6 flex flex-col bg-[#0c0a09]">
+                    <div className="md:col-span-5 p-6 flex flex-col bg-[#0c0a09] overflow-y-auto">
 
                         {/* Financials Box */}
                         <div className="bg-[#1c1917] border border-white/10 rounded-xl p-5 mb-6">
