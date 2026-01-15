@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { pdf } from '@react-pdf/renderer'
 import InvoiceDocument from './InvoiceDocument'
 import { Dialog } from './ui/Dialog'
@@ -14,6 +15,8 @@ import { format } from 'date-fns'
 
 export function TransactionDetailsModal({ isOpen, onClose, transaction, car, customer, onEdit, onUpdatePayment }) {
     if (!transaction) return null
+
+    const navigate = useNavigate()
 
     const [isEditingPayment, setIsEditingPayment] = useState(false)
     const [editedAmount, setEditedAmount] = useState(transaction.amountPaid || '')
@@ -116,7 +119,15 @@ export function TransactionDetailsModal({ isOpen, onClose, transaction, car, cus
                             <Badge variant={transaction.status === 'Active' ? 'success' : 'secondary'} className="px-3 py-1">
                                 {transaction.status} Rental
                             </Badge>
-                            <button className="text-xs text-red-400 hover:text-red-300 transition-colors">
+                            <button
+                                onClick={() => {
+                                    if (customer?.id) {
+                                        navigate(`/customers/${customer.id}`)
+                                        onClose() // Close modal after navigating
+                                    }
+                                }}
+                                className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                            >
                                 View Customer Profile
                             </button>
                         </div>

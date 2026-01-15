@@ -22,7 +22,7 @@ export function DrivewayProvider({ children }) {
     const snapshotToArray = (snapshot) => {
         const data = snapshot.val()
         if (!data) return []
-        return Object.entries(data).map(([id, value]) => ({ id, ...value }))
+        return Object.entries(data).map(([id, value]) => ({ ...value, id }))
     }
 
     // Subscribe to Data
@@ -105,7 +105,7 @@ export function DrivewayProvider({ children }) {
     }, [currentUser])
 
     const addCar = (car) => {
-        push(ref(database, 'cars'), car)
+        return push(ref(database, 'cars'), car)
     }
 
     const addCustomer = (customer) => {
@@ -118,7 +118,7 @@ export function DrivewayProvider({ children }) {
             createdAt: new Date().toISOString(),
             status: 'Active' // Default status
         }
-        push(ref(database, 'customers'), newCustomer)
+        return push(ref(database, 'customers'), newCustomer)
     }
 
     const addDealer = (dealer) => {
@@ -129,55 +129,61 @@ export function DrivewayProvider({ children }) {
             ...dealer,
             uniqueId: generateUniqueId('DLR')
         }
-        push(ref(database, 'dealers'), newDealer)
+        return push(ref(database, 'dealers'), newDealer)
     }
 
     const addRegister = (entry) => {
-        push(ref(database, 'registers'), {
+        return push(ref(database, 'registers'), {
             ...entry,
             createdAt: new Date().toISOString()
         })
     }
 
     const addTransaction = (transaction) => {
-        push(ref(database, 'transactions'), transaction)
+        const promise = push(ref(database, 'transactions'), transaction)
 
-        // Auto-add Exit entry
-        addRegister({
-            carId: transaction.carId,
-            customerId: transaction.customerId, // Using customerId field for generic 'Name' ref
-            date: new Date().toISOString(),
-            type: 'Exit',
-            notes: 'Auto-generated from Rental'
-        })
+        // Auto-add Exit entry only if the rental has already started or starts now
+        const startDate = new Date(transaction.startDate)
+        const now = new Date()
+
+        if (now >= startDate) {
+            addRegister({
+                carId: transaction.carId,
+                customerId: transaction.customerId, // Using customerId field for generic 'Name' ref
+                date: transaction.startDate,
+                type: 'Exit',
+                notes: 'Auto-generated from Rental'
+            })
+        }
+        return promise
     }
 
     const updateCar = (id, updatedCar) => {
-        update(ref(database, `cars/${id}`), updatedCar)
+        return update(ref(database, `cars/${id}`), updatedCar)
     }
 
     const deleteCar = (id) => {
-        remove(ref(database, `cars/${id}`))
+        return remove(ref(database, `cars/${id}`))
     }
 
     const updateCustomer = (id, updatedCustomer) => {
-        update(ref(database, `customers/${id}`), updatedCustomer)
+        return update(ref(database, `customers/${id}`), updatedCustomer)
     }
 
     const deleteCustomer = (id) => {
-        remove(ref(database, `customers/${id}`))
+        return remove(ref(database, `customers/${id}`))
     }
 
     const updateDealer = (id, updatedDealer) => {
-        update(ref(database, `dealers/${id}`), updatedDealer)
+        return update(ref(database, `dealers/${id}`), updatedDealer)
     }
 
     const deleteDealer = (id) => {
-        remove(ref(database, `dealers/${id}`))
+        return remove(ref(database, `dealers/${id}`))
     }
 
     const updateTransaction = (id, updatedTransaction) => {
-        update(ref(database, `transactions/${id}`), updatedTransaction)
+        const promise = update(ref(database, `transactions/${id}`), updatedTransaction)
 
         // If Status is Cancelled or Reserved, remove the 'Exit' entry to free up the car
         if (updatedTransaction.status === 'Cancelled' || updatedTransaction.status === 'Reserved') {
@@ -193,9 +199,10 @@ export function DrivewayProvider({ children }) {
                 remove(ref(database, `registers/${lastExit.id}`))
             }
         }
+        return promise
     }
 
-    const deleteTransaction = (id) => {
+    const deleteTransaction = async (id) => {
         // Find the transaction to get the carId
         const transactionToDelete = transactions.find(t => t.id === id)
 
@@ -208,64 +215,72 @@ export function DrivewayProvider({ children }) {
             // Remove the most recent exit if found
             if (carExits.length > 0) {
                 const lastExit = carExits[0]
-                remove(ref(database, `registers/${lastExit.id}`))
+                await remove(ref(database, `registers/${lastExit.id}`))
             }
         }
 
-        remove(ref(database, `transactions/${id}`))
+        return remove(ref(database, `transactions/${id}`))
     }
 
     const addMaintenanceRecord = (record) => {
-        push(ref(database, 'maintenanceRecords'), record)
+        const promise = push(ref(database, 'maintenanceRecords'), record)
         // Update car status to Maintenance
         update(ref(database, `cars/${record.carId}`), { status: 'Maintenance' })
+        return promise
     }
 
     const updateMaintenanceRecord = (id, updatedRecord) => {
-        update(ref(database, `maintenanceRecords/${id}`), updatedRecord)
+        const promise = update(ref(database, `maintenanceRecords/${id}`), updatedRecord)
 
         // If return date is set, update car status to Available
         if (updatedRecord.returnDate) {
             update(ref(database, `cars/${updatedRecord.carId}`), { status: 'Available' })
         }
+        return promise
     }
 
     const deleteMaintenanceRecord = (id) => {
-        remove(ref(database, `maintenanceRecords/${id}`))
+        return remove(ref(database, `maintenanceRecords/${id}`))
     }
 
     const deleteWorkshop = (workshopName) => {
         // Find all records with this workshop name
         const recordsToDelete = maintenanceRecords.filter(r => r.workshopName === workshopName)
-        recordsToDelete.forEach(r => {
-            remove(ref(database, `maintenanceRecords/${r.id}`))
+        const promises = recordsToDelete.map(r => {
+            return remove(ref(database, `maintenanceRecords/${r.id}`))
         })
+        return Promise.all(promises)
     }
 
     const renameWorkshop = (oldName, newName, newDetails, newPhone) => {
         const recordsToUpdate = maintenanceRecords.filter(r => r.workshopName === oldName)
-        recordsToUpdate.forEach(r => {
-            update(ref(database, `maintenanceRecords/${r.id}`), {
+        const promises = recordsToUpdate.map(r => {
+            return update(ref(database, `maintenanceRecords/${r.id}`), {
                 ...r,
                 workshopName: newName,
                 workshopDetails: newDetails || r.workshopDetails,
                 phoneNumber: newPhone || r.phoneNumber
             })
         })
+        return Promise.all(promises)
     }
 
     const addDealerTransaction = (transaction) => {
-        push(ref(database, 'dealerTransactions'), {
+        return push(ref(database, 'dealerTransactions'), {
             ...transaction,
             createdAt: new Date().toISOString()
         })
     }
 
     const addCustomerTransaction = (transaction) => {
-        push(ref(database, 'manualCustomerTransactions'), {
+        return push(ref(database, 'manualCustomerTransactions'), {
             ...transaction,
             createdAt: new Date().toISOString()
         })
+    }
+
+    const deleteCustomerTransaction = (id) => {
+        return remove(ref(database, `manualCustomerTransactions/${id}`))
     }
 
     // Computed Cars with Dynamic Status
@@ -278,20 +293,19 @@ export function DrivewayProvider({ children }) {
             status = 'Available'
         }
 
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
+        const now = new Date()
 
         // Check Maintenance
         const isOnMaintenance = maintenanceRecords.some(r => {
             if (r.carId !== car.id) return false
             const start = new Date(r.date)
-            start.setHours(0, 0, 0, 0)
+            // Strict timestamp comparison
+
             if (r.returnDate) {
                 const end = new Date(r.returnDate)
-                end.setHours(23, 59, 59, 999)
-                return today >= start && today <= end
+                return now >= start && now <= end
             }
-            return today >= start // Active if started and no return date confirmed
+            return now >= start // Active if started and no return date confirmed
         })
 
         if (isOnMaintenance) {
@@ -303,6 +317,12 @@ export function DrivewayProvider({ children }) {
             if (t.carId !== car.id || t.status === 'Cancelled' || t.status === 'Completed') return false
             const now = new Date()
             const start = new Date(t.startDate)
+
+            // If no endDate, it's an open rental -> active if started
+            if (!t.endDate) {
+                return now >= start
+            }
+
             const end = new Date(t.endDate)
             // Strict time comparison
             return now >= start && now <= end
@@ -319,8 +339,12 @@ export function DrivewayProvider({ children }) {
                 .filter(r => r.carId === car.id)
                 .sort((a, b) => new Date(b.date) - new Date(a.date))
 
-            if (carRegisters.length > 0 && carRegisters[0].type === 'Exit') {
-                status = 'Not Available'
+            if (carRegisters.length > 0) {
+                if (carRegisters[0].type === 'Exit') {
+                    status = 'Not Available'
+                } else if (carRegisters[0].type === 'Entry') {
+                    status = 'Available'
+                }
             }
         }
 
@@ -358,6 +382,7 @@ export function DrivewayProvider({ children }) {
             addDealerTransaction,
             manualCustomerTransactions,
             addCustomerTransaction,
+            deleteCustomerTransaction,
             isLoading,
         }}>
             {children}

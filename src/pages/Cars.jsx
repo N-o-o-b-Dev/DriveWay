@@ -5,12 +5,13 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Card, CardContent } from '../components/ui/Card'
 import {
-    Plus, Search, Filter, MapPin, ArrowUpDown,
+    Plus, Search, Filter, ArrowUpDown,
     Fuel, Calendar, Gauge, CreditCard, MoreHorizontal
 } from 'lucide-react'
 import { EditCarDrawer } from '../components/EditCarDrawer'
 import { GlobalRentalDrawer } from '../components/GlobalRentalDrawer'
 import { cn } from '../lib/utils'
+import { compressImage } from '../lib/imageCompression'
 
 export function Cars() {
     const { cars, addCar } = useDriveway()
@@ -32,34 +33,45 @@ export function Cars() {
     // Re-using the existing state structure for compatibility if we want to toggle the form.
     const [newCar, setNewCar] = useState({
         make: '', model: '', year: '', price: '', tenDayPrice: '', monthlyPrice: '', plateNumber: '', image: '',
-        color: '', mileage: '', fuelType: 'Petrol', fitnessValidTo: '', taxValidTo: '', insuranceValidTo: '', pollutionValidTo: '', description: '',
+        color: '', mileage: '', fuelType: 'Petrol', taxValidTo: '', insuranceValidTo: '', pollutionValidTo: '', description: '',
         rcImage: '', insuranceImage: '', pocImage: ''
     })
+
+
 
     const handleImageChange = async (field, e) => {
         const file = e.target.files[0]
         if (file) {
-            const reader = new FileReader()
-            reader.onloadend = () => {
-                setNewCar(prev => ({ ...prev, [field]: reader.result }))
+            try {
+                const compressedImage = await compressImage(file)
+                setNewCar(prev => ({ ...prev, [field]: compressedImage }))
+            } catch (error) {
+                console.error("Error compressing image:", error)
+                alert("Failed to process image. Please try another one.")
             }
-            reader.readAsDataURL(file)
         }
     }
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault()
         if (cars.some(car => car.plateNumber === newCar.plateNumber)) {
             alert('A car with this Plate Number already exists!')
             return
         }
-        addCar({ ...newCar, status: 'Available', createdAt: new Date().toISOString() })
-        setIsAdding(false)
-        setNewCar({
-            make: '', model: '', year: '', price: '', tenDayPrice: '', monthlyPrice: '', plateNumber: '', image: '',
-            color: '', mileage: '', fuelType: 'Petrol', fitnessValidTo: '', taxValidTo: '', insuranceValidTo: '', description: '',
-            rcImage: '', insuranceImage: '', pocImage: ''
-        })
+
+        try {
+            await addCar({ ...newCar, status: 'Available', createdAt: new Date().toISOString() })
+            alert('Vehicle saved successfully!')
+            setIsAdding(false)
+            setNewCar({
+                make: '', model: '', year: '', price: '', tenDayPrice: '', monthlyPrice: '', plateNumber: '', image: '',
+                color: '', mileage: '', fuelType: 'Petrol', taxValidTo: '', insuranceValidTo: '', pollutionValidTo: '', description: '',
+                rcImage: '', insuranceImage: '', pocImage: ''
+            })
+        } catch (error) {
+            console.error("Error saving vehicle:", error)
+            alert(`Failed to save vehicle: ${error.message}`)
+        }
     }
 
     // Derive unique types for filter
@@ -161,13 +173,7 @@ export function Cars() {
                     </select>
                 </div>
 
-                {/* Location Filter (Mock) */}
-                <div className="relative">
-                    <button className="flex items-center gap-2 bg-[#292524] text-white text-sm rounded-lg px-4 py-2 border-none">
-                        <span>Location: New York</span>
-                        <MapPin className="h-3 w-3 text-gray-400" />
-                    </button>
-                </div>
+
 
                 {/* Sort */}
                 <div className="relative">
@@ -190,19 +196,19 @@ export function Cars() {
                     {/* Simplified Form Wrapper - Reusing logic, styling slightly updated */}
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                            <Input placeholder="Make" value={newCar.make} onChange={e => setNewCar({ ...newCar, make: e.target.value })} className="bg-[#292524] border-0" required />
-                            <Input placeholder="Model" value={newCar.model} onChange={e => setNewCar({ ...newCar, model: e.target.value })} className="bg-[#292524] border-0" required />
-                            <Input placeholder="Year" type="number" value={newCar.year} onChange={e => setNewCar({ ...newCar, year: e.target.value })} className="bg-[#292524] border-0" required />
-                            <Input placeholder="Plate #" value={newCar.plateNumber} onChange={e => setNewCar({ ...newCar, plateNumber: e.target.value })} className="bg-[#292524] border-0" required />
+                            <Input placeholder="Make" value={newCar.make} onChange={e => setNewCar(prev => ({ ...prev, make: e.target.value }))} className="bg-[#292524] border-0" required />
+                            <Input placeholder="Model" value={newCar.model} onChange={e => setNewCar(prev => ({ ...prev, model: e.target.value }))} className="bg-[#292524] border-0" required />
+                            <Input placeholder="Year" type="number" value={newCar.year} onChange={e => setNewCar(prev => ({ ...prev, year: e.target.value }))} className="bg-[#292524] border-0" required />
+                            <Input placeholder="Plate #" value={newCar.plateNumber} onChange={e => setNewCar(prev => ({ ...prev, plateNumber: e.target.value }))} className="bg-[#292524] border-0" required />
                         </div>
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                            <Input placeholder="Color" value={newCar.color} onChange={e => setNewCar({ ...newCar, color: e.target.value })} className="bg-[#292524] border-0" />
-                            <Input placeholder="Mileage" value={newCar.mileage} onChange={e => setNewCar({ ...newCar, mileage: e.target.value })} className="bg-[#292524] border-0" />
-                            <Input placeholder="Price/Day" type="number" value={newCar.price} onChange={e => setNewCar({ ...newCar, price: e.target.value })} className="bg-[#292524] border-0" required />
-                            <Input placeholder="Price/10 Days" type="number" value={newCar.tenDayPrice} onChange={e => setNewCar({ ...newCar, tenDayPrice: e.target.value })} className="bg-[#292524] border-0" />
-                            <Input placeholder="Price/Month" type="number" value={newCar.monthlyPrice} onChange={e => setNewCar({ ...newCar, monthlyPrice: e.target.value })} className="bg-[#292524] border-0" />
+                            <Input placeholder="Color" value={newCar.color} onChange={e => setNewCar(prev => ({ ...prev, color: e.target.value }))} className="bg-[#292524] border-0" />
+                            <Input placeholder="Mileage" value={newCar.mileage} onChange={e => setNewCar(prev => ({ ...prev, mileage: e.target.value }))} className="bg-[#292524] border-0" />
+                            <Input placeholder="Price/Day" type="number" value={newCar.price} onChange={e => setNewCar(prev => ({ ...prev, price: e.target.value }))} className="bg-[#292524] border-0" required />
+                            <Input placeholder="Price/10 Days" type="number" value={newCar.tenDayPrice} onChange={e => setNewCar(prev => ({ ...prev, tenDayPrice: e.target.value }))} className="bg-[#292524] border-0" />
+                            <Input placeholder="Price/Month" type="number" value={newCar.monthlyPrice} onChange={e => setNewCar(prev => ({ ...prev, monthlyPrice: e.target.value }))} className="bg-[#292524] border-0" />
                             {/* Fuel Type Select */}
-                            <select className="bg-[#292524] text-white rounded-md px-3 border-0 text-sm" value={newCar.fuelType} onChange={e => setNewCar({ ...newCar, fuelType: e.target.value })}>
+                            <select className="bg-[#292524] text-white rounded-md px-3 border-0 text-sm" value={newCar.fuelType} onChange={e => setNewCar(prev => ({ ...prev, fuelType: e.target.value }))}>
                                 <option value="Petrol">Petrol</option>
                                 <option value="Diesel">Diesel</option>
                                 <option value="Electric">Electric</option>
@@ -213,16 +219,16 @@ export function Cars() {
                         {/* Expiry Dates Section */}
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                             <div className="space-y-1">
-                                <label className="text-xs text-gray-400 ml-1">Fitness Expiry</label>
-                                <Input type="date" value={newCar.fitnessValidTo} onChange={e => setNewCar({ ...newCar, fitnessValidTo: e.target.value })} className="bg-[#292524] border-0 text-white" />
+                                <label className="text-xs text-gray-400 ml-1">Pollution Certificate Validity</label>
+                                <Input type="date" value={newCar.pollutionValidTo} onChange={e => setNewCar(prev => ({ ...prev, pollutionValidTo: e.target.value }))} className="bg-[#292524] border-0 text-white" />
                             </div>
                             <div className="space-y-1">
                                 <label className="text-xs text-gray-400 ml-1">Insurance Expiry</label>
-                                <Input type="date" value={newCar.insuranceValidTo} onChange={e => setNewCar({ ...newCar, insuranceValidTo: e.target.value })} className="bg-[#292524] border-0 text-white" />
+                                <Input type="date" value={newCar.insuranceValidTo} onChange={e => setNewCar(prev => ({ ...prev, insuranceValidTo: e.target.value }))} className="bg-[#292524] border-0 text-white" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs text-gray-400 ml-1">Pollution Expiry</label>
-                                <Input type="date" value={newCar.pollutionValidTo} onChange={e => setNewCar({ ...newCar, pollutionValidTo: e.target.value })} className="bg-[#292524] border-0 text-white" />
+                                <label className="text-xs text-gray-400 ml-1">Tax Expiry</label>
+                                <Input type="date" value={newCar.taxValidTo} onChange={e => setNewCar(prev => ({ ...prev, taxValidTo: e.target.value }))} className="bg-[#292524] border-0 text-white" />
                             </div>
                         </div>
 

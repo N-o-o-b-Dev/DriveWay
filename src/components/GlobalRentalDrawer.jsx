@@ -24,6 +24,12 @@ export function GlobalRentalDrawer({ isOpen, onClose, preSelectedCarId }) {
         total: 0,
         breakdown: []
     })
+    const [now, setNow] = useState(new Date())
+
+    useEffect(() => {
+        const timer = setInterval(() => setNow(new Date()), 60000) // Update every minute
+        return () => clearInterval(timer)
+    }, [])
 
     const selectedCar = cars.find(c => c.id === rentalData.carId)
 
@@ -51,16 +57,24 @@ export function GlobalRentalDrawer({ isOpen, onClose, preSelectedCarId }) {
     }, [selectedCar])
 
     useEffect(() => {
-        if ((rentalData.startDate && rentalData.endDate && selectedCar) || (rentalData.customDuration && selectedCar)) {
+        if ((rentalData.startDate && selectedCar) || (rentalData.customDuration && selectedCar)) {
             let days = 0
 
             if (rentalData.customDuration) {
                 days = parseInt(rentalData.customDuration)
-            } else if (rentalData.startDate && rentalData.endDate) {
+            } else if (rentalData.startDate) {
                 const start = new Date(rentalData.startDate)
-                const end = new Date(rentalData.endDate)
-                const diffTime = Math.abs(end - start)
+                // If no end date, use current time (now)
+                const end = rentalData.endDate ? new Date(rentalData.endDate) : now
+
+                // Ensure we don't calculate negative days if start is future and we are using 'now'
+                // Actually, if start > now and no end date, days should probably be 0 or 1?
+                // Let's assume strict diff.
+                let diffTime = end - start
+                if (diffTime < 0) diffTime = 0 // Should not happen if start is valid
+
                 days = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+                if (days === 0 && !rentalData.endDate) days = 1 // Min 1 day for open rental started just now
             }
 
             let price = 0
@@ -105,7 +119,7 @@ export function GlobalRentalDrawer({ isOpen, onClose, preSelectedCarId }) {
         } else {
             setPriceDetails({ total: 0, breakdown: [] })
         }
-    }, [rentalData.startDate, rentalData.endDate, selectedCar, rentalData.dailyRate, rentalData.discount, rentalData.customDuration])
+    }, [rentalData.startDate, rentalData.endDate, selectedCar, rentalData.dailyRate, rentalData.discount, rentalData.customDuration, now])
 
     const handleSubmit = (e) => {
         e.preventDefault()
@@ -113,17 +127,15 @@ export function GlobalRentalDrawer({ isOpen, onClose, preSelectedCarId }) {
 
         // Date Overlap Validation
         const newStart = new Date(rentalData.startDate)
-        const newEnd = new Date(rentalData.endDate)
+        const newEnd = rentalData.endDate ? new Date(rentalData.endDate) : new Date(8640000000000000) // Far future if open-ended
 
         const hasOverlap = transactions.some(t => {
-            if (t.carId !== selectedCar.id || t.status === 'Cancelled') return false
+            if (t.carId !== selectedCar.id || t.status === 'Cancelled' || t.status === 'Completed') return false
             const existingStart = new Date(t.startDate)
-            const existingEnd = new Date(t.endDate)
+            const existingEnd = t.endDate ? new Date(t.endDate) : new Date(8640000000000000)
 
             return (
-                (newStart >= existingStart && newStart <= existingEnd) ||
-                (newEnd >= existingStart && newEnd <= existingEnd) ||
-                (newStart <= existingStart && newEnd >= existingEnd)
+                (newStart <= existingEnd && existingStart <= newEnd)
             )
         })
 
@@ -142,7 +154,7 @@ export function GlobalRentalDrawer({ isOpen, onClose, preSelectedCarId }) {
             customerId: rentalData.customerId,
             dealerId: rentalData.dealerId ? rentalData.dealerId : null,
             startDate: rentalData.startDate,
-            endDate: rentalData.endDate,
+            endDate: rentalData.endDate || null, // Ensure valid value for DB logic
             total: priceDetails.total,
             status: 'Active',
             paymentStatus: rentalData.paymentStatus,
@@ -231,12 +243,11 @@ export function GlobalRentalDrawer({ isOpen, onClose, preSelectedCarId }) {
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">End Date & Time</label>
+                            <label className="text-sm font-medium">End Date & Time (Optional)</label>
                             <Input
                                 type="datetime-local"
                                 value={rentalData.endDate}
                                 onChange={e => setRentalData({ ...rentalData, endDate: e.target.value })}
-                                required
                             />
                         </div>
                     </div>

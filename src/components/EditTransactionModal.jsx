@@ -10,9 +10,15 @@ import { generateId, cn } from '../lib/utils'
 import { DeleteRentalModal } from './DeleteRentalModal'
 
 export function EditTransactionModal({ isOpen, onClose, transaction }) {
-    const { updateTransaction, cars, customers, deleteTransaction, dealers } = useDriveway()
+    const { updateTransaction, cars, customers, deleteTransaction, dealers, addCustomerTransaction, manualCustomerTransactions, deleteCustomerTransaction } = useDriveway()
     const [activeTab, setActiveTab] = useState('Cash')
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+    const [now, setNow] = useState(new Date())
+
+    useEffect(() => {
+        const timer = setInterval(() => setNow(new Date()), 60000) // Update every minute
+        return () => clearInterval(timer)
+    }, [])
 
     const [formData, setFormData] = useState({
         startDate: '',
@@ -27,7 +33,8 @@ export function EditTransactionModal({ isOpen, onClose, transaction }) {
         additionalCharges: 0,
         discount: 0,
         discountNote: '',
-        dealerLocation: ''
+        dealerLocation: '',
+        dailyRate: 0
     })
 
     const [newPayment, setNewPayment] = useState({
@@ -56,6 +63,42 @@ export function EditTransactionModal({ isOpen, onClose, transaction }) {
                 }]
             }
 
+            // Determine Daily Rate
+            // We want to calculate this dynamically based on the duration to ensure it's correct
+            let initialDailyRate = transaction.dailyRate
+            // We'll recalculate this further down after getting days, or we can do it here.
+            // But getDynamicRate depends on car and days. Let's wait.
+
+            // Recalculate total if open-ended (no end date) so it's fresh
+            let currentTotal = transaction.total || 0
+
+            // Helper logic for calc (duplicated roughly here for init)
+            const getInitialDays = () => {
+                if (transaction.customDuration) return Number(transaction.customDuration)
+                const start = new Date(transaction.startDate)
+                const end = transaction.endDate ? new Date(transaction.endDate) : now
+                let diff = end - start
+                if (diff < 0) diff = 0
+                return Math.ceil(diff / (1000 * 60 * 60 * 24)) || 1
+            }
+            const initialDays = getInitialDays()
+
+            // Apply Dynamic Rate Logic Immediately on Load
+            if (car) {
+                if (initialDays >= 17 && car.monthlyPrice) {
+                    initialDailyRate = Math.round(car.monthlyPrice / 30)
+                } else if (initialDays >= 10 && car.tenDayPrice) {
+                    initialDailyRate = Math.round(car.tenDayPrice / 10)
+                } else {
+                    initialDailyRate = car.price || 0
+                }
+            }
+
+            if (!transaction.endDate && transaction.status === 'Active') {
+                const baseTotal = Math.round(Number(initialDailyRate) * initialDays)
+                currentTotal = Math.max(0, baseTotal - Number(transaction.discount || 0) + Number(transaction.additionalCharges || 0))
+            }
+
             setFormData({
                 startDate: transaction.startDate,
                 endDate: transaction.endDate,
@@ -64,38 +107,64 @@ export function EditTransactionModal({ isOpen, onClose, transaction }) {
                 notes: transaction.notes || '',
                 startMileage: transaction.startMileage || '',
                 payments: initialPayments,
-                total: transaction.total || 0,
+                total: currentTotal,
                 customDuration: transaction.customDuration || '',
                 additionalCharges: transaction.additionalCharges || 0,
                 discount: transaction.discount || 0,
                 discountNote: transaction.discountNote || '',
-                dealerLocation: transaction.dealerLocation || (dealer ? dealer.address : '')
+                dealerLocation: transaction.dealerLocation || (dealer ? dealer.address : ''),
+                dailyRate: initialDailyRate || 0
             })
         }
-    }, [transaction, dealer])
+
+    }, [transaction, dealer, car])
+
+    // --- Helpers ---
+
+    const calculateDaysDuration = (start, end, durationOverride) => {
+        if (durationOverride) return parseInt(durationOverride)
+        if (!start) return 0
+        const startDate = new Date(start)
+        const endDate = end ? new Date(end) : now
+        let diffTime = endDate - startDate
+        if (diffTime < 0) diffTime = 0
+        let days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1
+        return days
+    }
+
+    const getDynamicRate = (days) => {
+        if (!car) return 0
+        if (days >= 17 && car.monthlyPrice) {
+            return Math.round(car.monthlyPrice / 30)
+        } else if (days >= 10 && car.tenDayPrice) {
+            return Math.round(car.tenDayPrice / 10)
+        } else {
+            return car.price || 0
+        }
+    }
+
+    // Effect to correct daily rate on load if meaningful
+    useEffect(() => {
+        if (transaction && car && formData.startDate) {
+            const days = calculateDaysDuration(formData.startDate, formData.endDate, formData.customDuration)
+            const dynamicRate = getDynamicRate(days)
+            // Only update if it seems unset or we want to enforce it. The user said "daily price is wrong", so let's enforce dynamic.
+            // But we don't want to loop infinitely.
+            // Check if current rate differs from dynamic rate? 
+            // Or just trust the handlers. The user might have manually edited it? 
+            // Better to let the ONCHANGE handlers drive it, but we also want to fix it on open.
+            // Let's rely on the user interacting or just set it once? 
+            // Actually, if I just invoke it in the first useEffect, it's cleaner.
+        }
+    }, []) // Keeping it simple, I'll update the first useEffect instead.
 
     const totalPaid = formData.payments.reduce((sum, p) => p.type === 'Credit' ? sum + Number(p.amount) : sum - Number(p.amount), 0)
     const pendingBalance = Math.max(0, (Number(formData.total) || 0) - totalPaid)
 
     // Calculation Logic
-    const calculateTotal = (start, end, durationOverride, additional = 0, discount = 0) => {
-        if (!car) return 0
-        let diffDays = 0
-        if (durationOverride) {
-            diffDays = parseInt(durationOverride)
-        } else if (start && end) {
-            const startDate = new Date(start)
-            const endDate = new Date(end)
-            const diffTime = Math.abs(endDate - startDate)
-            diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1
-        }
-
-        let baseRate = Number(car.price) || 0
-        if (diffDays >= 30 && car.monthlyPrice) baseRate = Number(car.monthlyPrice) / 30
-        else if (diffDays >= 10 && diffDays < 30 && car.tenDayPrice) baseRate = Number(car.tenDayPrice) / 10
-        else baseRate = Number(car.price) || 0
-
-        const baseTotal = Math.round(baseRate * diffDays)
+    // Calculation Logic
+    const calculateTotal = (days, additional = 0, discount = 0, rate = 0) => {
+        const baseTotal = Math.round(Number(rate) * days)
         return Math.max(0, baseTotal - Number(discount) + Number(additional))
     }
 
@@ -117,6 +186,47 @@ export function EditTransactionModal({ isOpen, onClose, transaction }) {
     }
 
     const handleSubmit = () => {
+        // 1. Identify New Payments and Add to Global Ledger
+        const originalPaymentIds = new Set((transaction.payments || []).map(p => p.id))
+        const newPayments = formData.payments.filter(p => !originalPaymentIds.has(p.id))
+
+        // 1.1 Sync Deletions: Find payments that were in original but NOT in current formData
+        const currentPaymentIds = new Set(formData.payments.map(p => p.id))
+        const deletedPayments = (transaction.payments || []).filter(p => !currentPaymentIds.has(p.id))
+
+        deletedPayments.forEach(p => {
+            if (p.type === 'Credit') {
+                // Find matching ledger entry
+                // Primary match: paymentId
+                // Fallback: Fuzzy match by amount + date (within 1 min) + carId
+                const ledgerEntry = manualCustomerTransactions.find(t =>
+                    t.paymentId === p.id ||
+                    (!t.paymentId && t.isManual && t.amount === p.amount && t.carId === transaction.carId && Math.abs(new Date(t.date) - new Date(p.date)) < 60000)
+                )
+
+                if (ledgerEntry) {
+                    deleteCustomerTransaction(ledgerEntry.id)
+                }
+            }
+        })
+
+        newPayments.forEach(p => {
+            if (p.type === 'Credit') {
+                addCustomerTransaction({
+                    id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Date.now().toString() + Math.random().toString(),
+                    customerId: transaction.customerId,
+                    amount: p.amount,
+                    type: 'Credit',
+                    date: p.date,
+                    notes: `Payment for Rental #${transaction.id.slice(0, 6)}: ${p.notes || ''}`,
+                    isManual: true,
+                    carId: transaction.carId,
+                    paymentId: p.id
+                })
+            }
+        })
+
+        // 2. Update Rental Transaction
         updateTransaction(transaction.id, { ...formData, amountPaid: totalPaid })
         onClose()
     }
@@ -135,10 +245,13 @@ export function EditTransactionModal({ isOpen, onClose, transaction }) {
     // Helper for days display
     const getDays = () => {
         if (formData.customDuration) return formData.customDuration
-        if (formData.startDate && formData.endDate) {
+        if (formData.startDate) {
             const start = new Date(formData.startDate)
-            const end = new Date(formData.endDate)
-            return Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24)) || 1
+            const end = formData.endDate ? new Date(formData.endDate) : now
+            let diff = end - start
+            if (diff < 0) diff = 0
+            const days = Math.ceil(diff / (1000 * 60 * 60 * 24)) || 1
+            return days
         }
         return 0
     }
@@ -243,8 +356,11 @@ export function EditTransactionModal({ isOpen, onClose, transaction }) {
                                         className="bg-white/5 border-white/10 text-white"
                                         value={formData.startDate}
                                         onChange={e => {
-                                            const newTotal = calculateTotal(e.target.value, formData.endDate, formData.customDuration, formData.additionalCharges, formData.discount)
-                                            setFormData({ ...formData, startDate: e.target.value, total: newTotal })
+                                            const newStart = e.target.value
+                                            const days = calculateDaysDuration(newStart, formData.endDate, formData.customDuration)
+                                            const newRate = getDynamicRate(days)
+                                            const newTotal = calculateTotal(days, formData.additionalCharges, formData.discount, newRate)
+                                            setFormData({ ...formData, startDate: newStart, total: newTotal, dailyRate: newRate })
                                         }}
                                     />
                                 </div>
@@ -255,8 +371,11 @@ export function EditTransactionModal({ isOpen, onClose, transaction }) {
                                         className="bg-white/5 border-white/10 text-white"
                                         value={formData.endDate}
                                         onChange={e => {
-                                            const newTotal = calculateTotal(formData.startDate, e.target.value, formData.customDuration, formData.additionalCharges, formData.discount)
-                                            setFormData({ ...formData, endDate: e.target.value, total: newTotal })
+                                            const newEnd = e.target.value
+                                            const days = calculateDaysDuration(formData.startDate, newEnd, formData.customDuration)
+                                            const newRate = getDynamicRate(days)
+                                            const newTotal = calculateTotal(days, formData.additionalCharges, formData.discount, newRate)
+                                            setFormData({ ...formData, endDate: newEnd, total: newTotal, dailyRate: newRate })
                                         }}
                                     />
                                 </div>
@@ -275,8 +394,10 @@ export function EditTransactionModal({ isOpen, onClose, transaction }) {
                                         value={getDays()}
                                         onChange={(e) => {
                                             const val = e.target.value;
-                                            const newTotal = calculateTotal(formData.startDate, formData.endDate, val, formData.additionalCharges, formData.discount);
-                                            setFormData({ ...formData, customDuration: val, total: newTotal });
+                                            const days = parseInt(val) || 0
+                                            const newRate = getDynamicRate(days)
+                                            const newTotal = calculateTotal(days, formData.additionalCharges, formData.discount, newRate);
+                                            setFormData({ ...formData, customDuration: val, total: newTotal, dailyRate: newRate });
                                         }}
                                     />
                                     <span className="text-sm text-slate-400">Days</span>
@@ -323,10 +444,29 @@ export function EditTransactionModal({ isOpen, onClose, transaction }) {
                             </h3>
 
                             <div className="space-y-3 mb-4">
-                                <div className="flex justify-between text-sm">
-                                    <span className="text-slate-400">Base Rate ({getDays()} days)</span>
-                                    <span className="font-bold">₹{(Number(formData.total) - Number(formData.additionalCharges) + Number(formData.discount)).toLocaleString()}</span>
+                                {/* Daily Rate Editable */}
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-slate-400">Daily Rate</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-slate-500">₹</span>
+                                        <input
+                                            className="w-20 bg-black/20 border border-white/10 rounded px-2 py-1 text-right text-white text-sm"
+                                            type="number"
+                                            value={formData.dailyRate}
+                                            onChange={e => {
+                                                const newRate = e.target.value
+                                                const days = calculateDaysDuration(formData.startDate, formData.endDate, formData.customDuration)
+                                                const newTotal = calculateTotal(days, formData.additionalCharges, formData.discount, newRate)
+                                                setFormData({ ...formData, dailyRate: newRate, total: newTotal })
+                                            }}
+                                        />
+                                    </div>
                                 </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-slate-400">Base Cost ({getDays()} days)</span>
+                                    <span className="font-bold">₹{(Number(formData.dailyRate) * getDays()).toLocaleString()}</span>
+                                </div>
+
                                 <div className="space-y-1">
                                     <div className="flex justify-between items-center text-sm">
                                         <span className="text-slate-400">Discount</span>
@@ -338,7 +478,8 @@ export function EditTransactionModal({ isOpen, onClose, transaction }) {
                                                 value={formData.discount}
                                                 onChange={e => {
                                                     const newDiscount = e.target.value
-                                                    const newTotal = calculateTotal(formData.startDate, formData.endDate, formData.customDuration, formData.additionalCharges, newDiscount)
+                                                    const days = calculateDaysDuration(formData.startDate, formData.endDate, formData.customDuration)
+                                                    const newTotal = calculateTotal(days, formData.additionalCharges, newDiscount, formData.dailyRate)
                                                     setFormData({ ...formData, discount: newDiscount, total: newTotal })
                                                 }}
                                             />
@@ -361,7 +502,8 @@ export function EditTransactionModal({ isOpen, onClose, transaction }) {
                                             value={formData.additionalCharges}
                                             onChange={e => {
                                                 const newAdditional = e.target.value
-                                                const newTotal = calculateTotal(formData.startDate, formData.endDate, formData.customDuration, newAdditional, formData.discount)
+                                                const days = calculateDaysDuration(formData.startDate, formData.endDate, formData.customDuration)
+                                                const newTotal = calculateTotal(days, newAdditional, formData.discount, formData.dailyRate)
                                                 setFormData({ ...formData, additionalCharges: newAdditional, total: newTotal })
                                             }}
                                         />

@@ -6,7 +6,7 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import {
     Plus, Search, Filter, User, Users, UserCheck,
-    UserX, Phone, ShieldCheck, Download, MoreHorizontal, LayoutGrid, List, ChevronLeft, ChevronRight
+    UserX, Phone, ShieldCheck, Download, MoreHorizontal, LayoutGrid, List, ChevronLeft, ChevronRight, AlertCircle
 } from 'lucide-react'
 import { EditCustomerModal } from '../components/EditCustomerModal'
 import { AddCustomerModal } from '../components/AddCustomerModal'
@@ -43,11 +43,38 @@ function QuickStatCard({ title, value, subtext, icon: Icon, trend }) {
     )
 }
 
-function CustomerGridCard({ customer, onClick }) {
+function CustomerGridCard({ customer, onClick, transactions = [], manualCustomerTransactions = [] }) {
     const statusColor =
         customer.status === 'Blacklisted' ? 'bg-red-500' :
             customer.status === 'VIP' ? 'bg-yellow-500' :
                 'bg-green-500'
+
+    // Calculate Pending Amount (Logic from CustomerDetailsPage)
+    const pendingAmount = useMemo(() => {
+        let totalSpent = 0
+        let totalPaid = 0
+
+        // 1. Rentals - ONLY DEBITS (Start of transaction)
+        transactions
+            .filter(t => t.customerId === customer.id)
+            .forEach(t => {
+                totalSpent += Number(t.total) || 0
+                totalPaid += Number(t.amountPaid) || 0
+            })
+
+        // 2. Manual Transactions
+        manualCustomerTransactions
+            .filter(t => t.customerId === customer.id)
+            .forEach(t => {
+                if (t.type === 'Debit') {
+                    totalSpent += Number(t.amount) || 0
+                } else if (t.type === 'Credit') {
+                    totalPaid += Number(t.amount) || 0
+                }
+            })
+
+        return Math.max(0, totalSpent - totalPaid)
+    }, [customer.id, transactions, manualCustomerTransactions])
 
     return (
         <Card className="bg-[#1c1917] border-white/5 overflow-hidden group hover:border-white/20 transition-all">
@@ -90,7 +117,20 @@ function CustomerGridCard({ customer, onClick }) {
                                 {customer.status || 'Active'}
                             </span>
                         </div>
+                        {/* Pending Amount */}
+                        <div className="flex items-center justify-between text-sm py-2 border-b border-white/5">
+                            <span className="flex items-center gap-2 text-gray-400">
+                                <AlertCircle className="h-3 w-3" /> Due
+                            </span>
+                            <span className={cn(
+                                "font-bold",
+                                pendingAmount > 0 ? "text-red-500" : "text-green-500"
+                            )}>
+                                ₹{pendingAmount.toLocaleString()}
+                            </span>
+                        </div>
                     </div>
+
 
                     {/* Action */}
                     <Button
@@ -101,12 +141,12 @@ function CustomerGridCard({ customer, onClick }) {
                     </Button>
                 </div>
             </CardContent>
-        </Card>
+        </Card >
     )
 }
 
 export function Customers() {
-    const { customers, addCustomer, transactions } = useDriveway()
+    const { customers, addCustomer, transactions, manualCustomerTransactions } = useDriveway()
     const navigate = useNavigate()
 
     // State
@@ -158,8 +198,8 @@ export function Customers() {
                 const hasActive = transactions.some(t =>
                     t.customerId === c.id &&
                     new Date(t.startDate) <= new Date() &&
-                    new Date(t.endDate) >= new Date() &&
-                    t.status !== 'Cancelled'
+                    (!t.endDate || new Date(t.endDate) >= new Date()) &&
+                    t.status !== 'Cancelled' && t.status !== 'Completed'
                 )
                 matchesFilter = hasActive
             } else if (statusFilter === 'Blacklisted') {
@@ -301,6 +341,8 @@ export function Customers() {
                         key={customer.id}
                         customer={customer}
                         onClick={() => navigate(`/customers/${customer.id}`)}
+                        transactions={transactions}
+                        manualCustomerTransactions={manualCustomerTransactions}
                     />
                 ))}
             </div>

@@ -3,6 +3,7 @@ import { useDriveway } from '../context/DrivewayContext'
 import { Button } from './ui/Button'
 import { Input } from './ui/Input'
 import { Dialog, DialogHeader, DialogTitle } from './ui/Dialog'
+import { compressImage } from '../lib/imageCompression'
 
 export function EditCarDrawer({ isOpen, onClose, car }) {
     const { updateCar } = useDriveway()
@@ -19,7 +20,7 @@ export function EditCarDrawer({ isOpen, onClose, car }) {
         color: '',
         mileage: '',
         fuelType: 'Petrol',
-        fitnessValidTo: '',
+        pollutionValidTo: '',
         taxValidTo: '',
         insuranceValidTo: '',
         description: '',
@@ -43,7 +44,8 @@ export function EditCarDrawer({ isOpen, onClose, car }) {
                 color: car.color || '',
                 mileage: car.mileage || '',
                 fuelType: car.fuelType || 'Petrol',
-                fitnessValidTo: car.fitnessValidTo || '',
+                pollutionValidTo: car.pollutionValidTo || '',
+                fitnessValidTo: car.fitnessValidTo || '', // Keep for backward compatibility if needed, but UI shows Pollution
                 taxValidTo: car.taxValidTo || '',
                 insuranceValidTo: car.insuranceValidTo || '',
                 description: car.description || '',
@@ -54,21 +56,29 @@ export function EditCarDrawer({ isOpen, onClose, car }) {
         }
     }, [car])
 
-    const handleImageChange = (field, e) => {
+    const handleImageChange = async (field, e) => {
         const file = e.target.files[0]
         if (file) {
-            const reader = new FileReader()
-            reader.onloadend = () => {
-                setFormData(prev => ({ ...prev, [field]: reader.result }))
+            try {
+                const compressedImage = await compressImage(file)
+                setFormData(prev => ({ ...prev, [field]: compressedImage }))
+            } catch (error) {
+                console.error("Error compressing image:", error)
+                alert("Failed to process image.")
             }
-            reader.readAsDataURL(file)
         }
     }
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault()
-        updateCar(car.id, formData)
-        onClose()
+        try {
+            await updateCar(car.id, formData)
+            alert('Car updated successfully!')
+            onClose()
+        } catch (error) {
+            console.error("Failed to update car:", error)
+            alert(`Failed to update car: ${error.message}`)
+        }
     }
 
     return (
@@ -169,11 +179,11 @@ export function EditCarDrawer({ isOpen, onClose, car }) {
                         <label className="text-sm font-medium">Validity Dates</label>
                         <div className="grid grid-cols-3 gap-2">
                             <div className="space-y-1">
-                                <label className="text-xs text-muted-foreground">Fitness</label>
+                                <label className="text-xs text-muted-foreground">Pollution Certificate Validity</label>
                                 <Input
                                     type="date"
-                                    value={formData.fitnessValidTo}
-                                    onChange={e => setFormData({ ...formData, fitnessValidTo: e.target.value })}
+                                    value={formData.pollutionValidTo}
+                                    onChange={e => setFormData({ ...formData, pollutionValidTo: e.target.value })}
                                 />
                             </div>
                             <div className="space-y-1">

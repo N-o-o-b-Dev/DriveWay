@@ -226,7 +226,7 @@ export function EditMaintenanceModal({ isOpen, onClose, record }) {
                             <div className="relative">
                                 <CalendarIcon className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
                                 <Input
-                                    type="date"
+                                    type="datetime-local"
                                     className="pl-9 bg-[#1A1A1A] border-white/10 text-white calendar-picker-indicator-white"
                                     value={formData.date}
                                     onChange={e => setFormData({ ...formData, date: e.target.value })}
@@ -239,7 +239,7 @@ export function EditMaintenanceModal({ isOpen, onClose, record }) {
                             <div className="relative">
                                 <CalendarIcon className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
                                 <Input
-                                    type="date"
+                                    type="datetime-local"
                                     className="pl-9 bg-[#1A1A1A] border-white/10 text-white calendar-picker-indicator-white"
                                     value={formData.returnDate}
                                     onChange={e => setFormData({ ...formData, returnDate: e.target.value })}
