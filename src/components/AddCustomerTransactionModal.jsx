@@ -79,7 +79,7 @@ export function AddCustomerTransactionModal({ isOpen, onClose, customer }) {
                         <span className="absolute left-3 top-2.5 text-slate-500">₹</span>
                         <Input
                             type="number"
-                            className="pl-8 bg-white/5 border-white/10"
+                            className="pl-8 bg-white/5 border-white/10 text-white"
                             placeholder="0.00"
                             value={formData.amount}
                             onChange={e => setFormData({ ...formData, amount: e.target.value })}
@@ -91,7 +91,7 @@ export function AddCustomerTransactionModal({ isOpen, onClose, customer }) {
                     <label className="text-xs text-slate-400">Date</label>
                     <Input
                         type="datetime-local"
-                        className="bg-white/5 border-white/10"
+                        className="bg-white/5 border-white/10 text-white"
                         value={formData.date}
                         onChange={e => setFormData({ ...formData, date: e.target.value })}
                     />

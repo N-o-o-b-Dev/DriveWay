@@ -486,7 +486,7 @@ export function EditTransactionModal({ isOpen, onClose, transaction }) {
                                         </div>
                                     </div>
                                     <input
-                                        className="w-full bg-transparent border-b border-white/10 text-[10px] text-slate-400 focus:outline-none focus:border-red-500 placeholder:text-slate-600 pb-1"
+                                        className="w-full bg-transparent border-b border-white/10 text-[10px] text-white focus:outline-none focus:border-red-500 placeholder:text-slate-600 pb-1"
                                         placeholder="Reason for discount (optional)"
                                         value={formData.discountNote}
                                         onChange={e => setFormData({ ...formData, discountNote: e.target.value })}
@@ -552,7 +552,7 @@ export function EditTransactionModal({ isOpen, onClose, transaction }) {
                                     <div className="relative">
                                         <span className="absolute left-3 top-2 text-slate-500">₹</span>
                                         <Input
-                                            className="pl-7 bg-black/20 border-white/10"
+                                            className="pl-7 bg-black/20 border-white/10 text-white"
                                             type="number"
                                             value={newPayment.amount}
                                             onChange={e => setNewPayment({ ...newPayment, amount: e.target.value })}
@@ -562,7 +562,7 @@ export function EditTransactionModal({ isOpen, onClose, transaction }) {
                                 <div className="space-y-1">
                                     <label className="text-[10px] text-slate-400 uppercase font-bold">Receiver</label>
                                     <Input
-                                        className="bg-black/20 border-white/10"
+                                        className="bg-black/20 border-white/10 text-white"
                                         placeholder="Admin Name"
                                     />
                                 </div>

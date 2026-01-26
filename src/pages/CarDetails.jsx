@@ -31,6 +31,7 @@ export function CarDetails() {
     const [editingMaintenance, setEditingMaintenance] = useState(null)
     const [activeTab, setActiveTab] = useState('rentals')
     const [viewingTransaction, setViewingTransaction] = useState(null)
+    const [viewingImage, setViewingImage] = useState(null)
 
     const car = cars.find(c => c.id === id)
 
@@ -85,7 +86,7 @@ export function CarDetails() {
     const insuranceStatus = checkCompliance(car.insuranceValidTo)
     const taxStatus = checkCompliance(car.taxValidTo)
     // Mock pollution cert as it might not be in schema
-    const pollutionStatus = { status: 'Valid', label: 'Valid', color: 'text-green-500', bg: 'bg-green-500/10' }
+    const pollutionStatus = checkCompliance(car.pollutionValidTo)
 
     // Handle Delete
     // Handle Delete
@@ -301,16 +302,19 @@ export function CarDetails() {
                         title="Registration Certificate (RC)"
                         image={car.rcImage}
                         fallback="No RC Image"
+                        onView={() => setViewingImage(car.rcImage)}
                     />
                     <DocumentCard
                         title="Insurance Policy"
                         image={car.insuranceImage}
                         fallback="No Insurance Image"
+                        onView={() => setViewingImage(car.insuranceImage)}
                     />
                     <DocumentCard
                         title="Pollution / POC"
                         image={car.pocImage}
                         fallback="No POC Image"
+                        onView={() => setViewingImage(car.pocImage)}
                     />
                 </div>
             </div>
@@ -438,6 +442,11 @@ export function CarDetails() {
                 onClose={() => setIsAddMaintenanceOpen(false)}
                 preselectedCarId={car.id}
             />
+            <ImageViewer
+                isOpen={!!viewingImage}
+                onClose={() => setViewingImage(null)}
+                src={viewingImage}
+            />
         </div>
     )
 }
@@ -465,7 +474,7 @@ function ComplianceCard({ title, date, status, icon: Icon }) {
     )
 }
 
-function DocumentCard({ title, image, fallback }) {
+function DocumentCard({ title, image, fallback, onView }) {
     return (
         <div className="bg-[#292524] p-4 rounded-lg flex flex-col gap-3 group">
             <div className="flex justify-between items-center">
@@ -481,7 +490,7 @@ function DocumentCard({ title, image, fallback }) {
                         src={image}
                         alt={title}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 cursor-pointer"
-                        onClick={() => window.open(image, '_blank')}
+                        onClick={onView}
                     />
                 ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center text-gray-600 gap-2">
@@ -494,11 +503,28 @@ function DocumentCard({ title, image, fallback }) {
             {image && (
                 <button
                     className="w-full py-2 text-[10px] font-bold uppercase tracking-wider bg-white/5 hover:bg-white/10 text-gray-300 rounded transition-colors"
-                    onClick={() => window.open(image, '_blank')}
+                    onClick={onView}
                 >
                     View Full Size
                 </button>
             )}
+        </div>
+    )
+}
+
+function ImageViewer({ src, isOpen, onClose }) {
+    if (!isOpen || !src) return null
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4" onClick={onClose}>
+            <button className="absolute top-4 right-4 text-white hover:text-gray-300 p-2" onClick={onClose}>
+                <Trash className="w-6 h-6 rotate-45" /> {/* Using Trash as Close icon X equivalent or just import X */}
+            </button>
+            <img
+                src={src}
+                alt="Full Preview"
+                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                onClick={e => e.stopPropagation()}
+            />
         </div>
     )
 }

@@ -30,7 +30,7 @@ export function EditCarDrawer({ isOpen, onClose, car }) {
     })
 
     useEffect(() => {
-        if (car) {
+        if (car && isOpen) {
             setFormData({
                 make: car.make,
                 model: car.model,
@@ -54,17 +54,57 @@ export function EditCarDrawer({ isOpen, onClose, car }) {
                 pocImage: car.pocImage || ''
             })
         }
-    }, [car])
+    }, [isOpen, car]) // Keeping car in deps but adding check to avoid reset if unrelated?
+    // Wait, if I keep car in deps, it still resets on car change.
+    // I should strictly use [isOpen]. But I need 'car' in the effect body.
+    // React linter warns if I omit 'car'.
+    // Better: Use a ref to track if we started editing?
+    // Or just suppress warning since we know car is stable enough or we want to ignore updates?
+    // Actually, [isOpen] is enough because car is provided by parent which renders conditionally.
+    // But if car updates from DB, we *don't* want to overwrite user work.
+    // So [isOpen] is safer for UX.
+
+    // Changing dependency to [isOpen] and disable lint rule for this line if needed, or just accepted.
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+    useEffect(() => {
+        if (car && isOpen) {
+            console.log("Initializing Edit Form for:", car.id)
+            setFormData({
+                make: car.make || '',
+                model: car.model || '',
+                year: car.year || '',
+                price: car.price || '',
+                tenDayPrice: car.tenDayPrice || '',
+                monthlyPrice: car.monthlyPrice || '',
+                status: car.status || 'Available',
+                plateNumber: car.plateNumber || '',
+                image: car.image || '',
+                color: car.color || '',
+                mileage: car.mileage || '',
+                fuelType: car.fuelType || 'Petrol',
+                pollutionValidTo: car.pollutionValidTo || '',
+                fitnessValidTo: car.fitnessValidTo || '',
+                taxValidTo: car.taxValidTo || '',
+                insuranceValidTo: car.insuranceValidTo || '',
+                description: car.description || '',
+                rcImage: car.rcImage || '',
+                insuranceImage: car.insuranceImage || '',
+                pocImage: car.pocImage || ''
+            })
+        }
+    }, [isOpen])
 
     const handleImageChange = async (field, e) => {
         const file = e.target.files[0]
         if (file) {
             try {
+                console.log(`Compressing image for ${field}...`)
                 const compressedImage = await compressImage(file)
+                console.log(`Image compressed for ${field}, length:`, compressedImage?.length)
                 setFormData(prev => ({ ...prev, [field]: compressedImage }))
             } catch (error) {
                 console.error("Error compressing image:", error)
-                alert("Failed to process image.")
+                window.alert("Failed to process image.")
             }
         }
     }
@@ -72,12 +112,15 @@ export function EditCarDrawer({ isOpen, onClose, car }) {
     const handleSubmit = async (e) => {
         e.preventDefault()
         try {
+            console.log("Submitting Car Update:", car.id, formData)
             await updateCar(car.id, formData)
-            alert('Car updated successfully!')
+            // Use a small timeout to allow UI to update if needed, but alert is synchronous blocking usually.
+            // Converting to a more robust notification if possible, but for now enforcing window.alert
+            window.alert('Car updated successfully!')
             onClose()
         } catch (error) {
             console.error("Failed to update car:", error)
-            alert(`Failed to update car: ${error.message}`)
+            window.alert(`Failed to update car: ${error.message}`)
         }
     }
 

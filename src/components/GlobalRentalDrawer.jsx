@@ -56,25 +56,44 @@ export function GlobalRentalDrawer({ isOpen, onClose, preSelectedCarId }) {
         }
     }, [selectedCar])
 
+    // Auto-calculate duration when dates change
+    useEffect(() => {
+        if (rentalData.startDate) {
+            const start = new Date(rentalData.startDate)
+            const end = rentalData.endDate ? new Date(rentalData.endDate) : new Date()
+
+            let diffTime = end - start
+            if (diffTime < 0) diffTime = 0
+
+            let days = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+            if (days === 0 && !rentalData.endDate) days = 1
+
+            setRentalData(prev => ({ ...prev, customDuration: days.toString() }))
+        }
+    }, [rentalData.startDate, rentalData.endDate])
+
     useEffect(() => {
         if ((rentalData.startDate && selectedCar) || (rentalData.customDuration && selectedCar)) {
             let days = 0
 
             if (rentalData.customDuration) {
                 days = parseInt(rentalData.customDuration)
-            } else if (rentalData.startDate) {
+            }
+            // Fallback logic removed as customDuration is now primary driven by above effect
+            // But we keep some safety just in case cleared?
+            // Actually, if customDuration is empty string, parseInt is NaN.
+
+            if (!days && rentalData.startDate) {
+                // Fallback if user clears the box?
+                // Let's keep the calc logic for robustness or just trust the input?
+                // If input is empty, treat as 0 or calc?
+                // Previous logic handled empty customDuration by calc-ing.
+                // Let's preserve fallback but it likely won't be hit often if we auto-fill.
                 const start = new Date(rentalData.startDate)
-                // If no end date, use current time (now)
                 const end = rentalData.endDate ? new Date(rentalData.endDate) : now
-
-                // Ensure we don't calculate negative days if start is future and we are using 'now'
-                // Actually, if start > now and no end date, days should probably be 0 or 1?
-                // Let's assume strict diff.
                 let diffTime = end - start
-                if (diffTime < 0) diffTime = 0 // Should not happen if start is valid
-
-                days = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-                if (days === 0 && !rentalData.endDate) days = 1 // Min 1 day for open rental started just now
+                if (diffTime < 0) diffTime = 0
+                days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1
             }
 
             let price = 0
@@ -263,7 +282,7 @@ export function GlobalRentalDrawer({ isOpen, onClose, preSelectedCarId }) {
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">Duration Override (Days)</label>
+                            <label className="text-sm font-medium">Duration (Days)</label>
                             <Input
                                 type="number"
                                 value={rentalData.customDuration}

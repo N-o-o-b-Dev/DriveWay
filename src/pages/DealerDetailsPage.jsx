@@ -414,10 +414,10 @@ export function DealerDetailsPage() {
                                                             <td className="px-4 py-3 text-center">
                                                                 <Badge className={cn(
                                                                     "text-[10px]",
-                                                                    item.paymentStatus === 'Paid' ? "bg-green-500/10 text-green-500" :
+                                                                    (item.paymentStatus === 'Paid' || Number(item.total) === 0) ? "bg-green-500/10 text-green-500" :
                                                                         item.paymentStatus === 'Pending' ? "bg-yellow-500/10 text-yellow-500" : "bg-red-500/10 text-red-500"
                                                                 )}>
-                                                                    {item.paymentStatus || 'Pending'}
+                                                                    {(item.paymentStatus === 'Paid' || Number(item.total) === 0) ? 'Paid' : (item.paymentStatus || 'Pending')}
                                                                 </Badge>
                                                             </td>
                                                             <td className="px-4 py-3 text-right">

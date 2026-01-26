@@ -59,7 +59,7 @@ function CustomerGridCard({ customer, onClick, transactions = [], manualCustomer
             .filter(t => t.customerId === customer.id)
             .forEach(t => {
                 totalSpent += Number(t.total) || 0
-                totalPaid += Number(t.amountPaid) || 0
+                // totalPaid is tracked via manual transactions now (credits)
             })
 
         // 2. Manual Transactions
